@@ -105,8 +105,8 @@ Un único punto de uso: **`src/PdfReader/PdfToText.php`**.
 | `ScrapCsfFromRfcAndCifTest` (6 tests vía `prepareScraper`) | `GuzzleHttp\Handler\MockHandler` con `Response(200, [], fileContents(html))` | `respx` ruta GET al URL exacto del validador SAT devolviendo 200 + contenido del fixture |
 | `ScrapCsfFromRfcAndCifTest::test_throw_exception_on_download_error` | `MockHandler` con excepción `GuzzleException` mockeada | `respx` con `side_effect=httpx.ConnectError(...)` |
 | `ScrapFromCsfFileTest::test_scrap_from_idcif_and_rfc_by_moral` | igual que arriba (usa `ScraperHelper`) | igual que arriba |
-| `ScrapFromCsfFileTest::test_obtain_from_pdf_with_invalid_url` | **RED REAL** (`Scraper::create()` contra `sat.gob.mx`) | ver §6 — pendiente de confirmación |
-| `ScrapFromCsfFileTest::test_obtain_from_pdf_with_invalid_data` | **RED REAL** (`Scraper::create()` contra `siat.sat.gob.mx`) | ver §6 — pendiente de confirmación |
+| `ScrapFromCsfFileTest::test_obtain_from_pdf_with_invalid_url` | **RED REAL** (`Scraper::create()` contra `sat.gob.mx`) | respx: `side_effect=httpx.ConnectError(...)` en el URL con host alterno (decidido, sin red real) |
+| `ScrapFromCsfFileTest::test_obtain_from_pdf_with_invalid_data` | **RED REAL** (`Scraper::create()` contra `siat.sat.gob.mx`) | respx: 200 con fixture `error.html` (decidido, sin red real) |
 | El resto (unit/exceptions/pdf/persona/regimen) | sin HTTP | sin HTTP |
 
 Ningún test del original afirma el URL construido (el `MockHandler` responde sin importar la URL); en la portación la ruta respx se fija al URL completo esperado (`?D1=10&D2=1&D3=<idCIF>_<RFC>`), lo cual además valida el formateo.
@@ -125,12 +125,11 @@ Ningún test del original afirma el URL construido (el `MockHandler` responde si
 | `http_errors` | Guzzle lanza excepción en 4xx/5xx → capturado como `CifDownloadException` | `response.raise_for_status()` + captura de `httpx.HTTPError` → `CifDownloadException` |
 | Codificación cuerpo | cast `(string) $response->getBody()` (bytes) → se parsea como HTML | `response.text` (httpx asume UTF-8 sin `charset`; los fixtures son UTF-8) |
 
-## 6. Comportamientos que requieren decisión (Fase 0 — reportados)
+## 6. Comportamientos reportados y resueltos (Fase 0)
 
-1. **Dos tests originales usan red real contra el SAT** (prohibido por la regla 5):
-   - `test_obtain_from_pdf_with_invalid_url`: cambia `Scraper::$url` a `sat.gob.mx` y espera `CifDownloadException` de una petición real.
-   - `test_obtain_from_pdf_with_invalid_data`: pide a `siat.sat.gob.mx` con el RFC/CIF extraídos de `csf-correct-but-invalid.pdf` y espera `CifNotFoundException` de la página de error real.
-   - Propuesta: mockear con respx conservando la intención (URL alterno → `ConnectError`; respuesta = fixture `error.html` → `CifNotFoundException`) sin tocar red. **Pendiente de confirmación.**
+1. **Dos tests originales usan red real contra el SAT** (prohibido por la regla 5) — **resuelto**: se migran con respx conservando intención y nombre:
+   - `test_obtain_from_pdf_with_invalid_url`: respx lanza `httpx.ConnectError` en el URL con host alterno → espera `CifDownloadException`.
+   - `test_obtain_from_pdf_with_invalid_data`: respx devuelve el fixture `error.html` → espera `CifNotFoundException`.
 2. **`symfony/process` → `subprocess` + binario externo `pdftotext`** (§3): fuera del stack "pip" pero permitido como stdlib; el binario externo era requisito ya del original.
 3. **`test_create_with_specific_openssl_cipher_list`** depende del deprecado `Client::getConfig('curl')`: se sustituye por asertar sobre el `SSLContext` resultante (`security_level == 1` y ciphers configurados) — adaptación documentada.
 4. **`test_throw_exception_when_path_not_found`** espera `RuntimeException` (Symfony): en Python espera `FileNotFoundError` (stdlib).
