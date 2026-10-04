@@ -1,5 +1,6 @@
 """Port Python de `phpcfdi/csf-scraper <https://github.com/phpcfdi/csf-scraper>`_."""
 
+from csf_scraper.data_extractor import DataExtractor
 from csf_scraper.exceptions import (
     CifDownloadException,
     CifNotFoundException,
@@ -22,6 +23,7 @@ __all__ = [
     "CifFromPdfNotFoundException",
     "CifNotFoundException",
     "CsfScraperException",
+    "DataExtractor",
     "EmptyPdfContentException",
     "PdfToTextConvertException",
     "Persona",
