@@ -25,11 +25,11 @@ class Regimenes(BaseModel):
             raise TypeError("add_regimen() missing required argument")
         self.regimenes.extend(regimenes)
 
-    def to_array(self) -> list[dict[str, Any]]:
+    def to_dict(self) -> list[dict[str, Any]]:
         """Equivalente a ``Regimenes::toArray()``."""
-        return [regimen.to_array() for regimen in self.regimenes]
+        return [regimen.to_dict() for regimen in self.regimenes]
 
     @model_serializer(mode="plain")
     def serialize_regimenes(self) -> list[dict[str, Any]]:
         """Equivalente a ``Regimenes::jsonSerialize()`` (la colección serializa como lista)."""
-        return self.to_array()
+        return self.to_dict()

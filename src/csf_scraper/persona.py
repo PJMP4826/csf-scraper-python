@@ -67,7 +67,7 @@ class Persona(BaseModel, ABC):
         """Equivalente a ``Persona::addRegimenes(Regimen ...$regimenes)``."""
         self.regimenes.add_regimen(*regimenes)
 
-    def to_array(self) -> dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Equivalente a ``Persona::toArray()``."""
         return {
             "rfc": self.rfc,
@@ -85,7 +85,7 @@ class Persona(BaseModel, ABC):
             "codigo_postal": self.codigo_postal,
             "correo_electronico": self.correo_electronico,
             "al": self.al,
-            "regimenes": self.regimenes.to_array(),
+            "regimenes": self.regimenes.to_dict(),
             "extra_data": self.extra_data,
         }
 

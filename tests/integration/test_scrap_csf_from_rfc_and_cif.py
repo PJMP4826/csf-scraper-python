@@ -59,7 +59,7 @@ def test_scrap_from_idcif_and_rfc_by_moral() -> None:
         "extra_data": {"Localidad": ""},
     }
 
-    data = csf_scrap.obtain_from_rfc_and_cif(rfc, idcif).to_array()
+    data = csf_scrap.obtain_from_rfc_and_cif(rfc, idcif).to_dict()
 
     assert data == expected_data
 
@@ -100,7 +100,7 @@ def test_scrap_from_idcif_and_rfc_by_fisica() -> None:
         "extra_data": {"Localidad": ""},
     }
 
-    data = csf_scrap.obtain_from_rfc_and_cif(rfc, idcif).to_array()
+    data = csf_scrap.obtain_from_rfc_and_cif(rfc, idcif).to_dict()
 
     assert data == expected_data
 
@@ -146,7 +146,7 @@ def test_scrap_from_idcif_and_rfc_multiple_regimen() -> None:
         "extra_data": {"Localidad": ""},
     }
 
-    data = csf_scrap.obtain_from_rfc_and_cif(rfc, idcif).to_array()
+    data = csf_scrap.obtain_from_rfc_and_cif(rfc, idcif).to_dict()
 
     assert data == expected_data
 
@@ -185,7 +185,7 @@ def test_scrap_from_idcif_and_rfc_localidad_instead_of_colonia() -> None:
         "extra_data": {"Localidad": "30210010"},
     }
 
-    data = csf_scrap.obtain_from_rfc_and_cif(rfc, idcif).to_array()
+    data = csf_scrap.obtain_from_rfc_and_cif(rfc, idcif).to_dict()
 
     assert data == expected_data
 

@@ -61,7 +61,7 @@ def test_scrap_from_idcif_and_rfc_by_moral() -> None:
         "extra_data": {"Localidad": ""},
     }
 
-    data = csf_scrap.obtain_from_pdf_path("my-path").to_array()
+    data = csf_scrap.obtain_from_pdf_path("my-path").to_dict()
 
     assert data == expected_data
 

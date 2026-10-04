@@ -66,7 +66,7 @@ class Regimen(BaseModel):
         """Asigna la fecha de alta desde ``dd-mm-yyyy`` (``None`` si no es válida)."""
         self.fecha_alta = parse_date(fecha_alta)
 
-    def to_array(self) -> dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Equivalente a ``Regimen::toArray()``."""
         return {
             "regimen": self.regimen,

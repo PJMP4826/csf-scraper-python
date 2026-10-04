@@ -38,11 +38,11 @@ class PersonaMoral(Persona):
             "Al": "AL:",
         }
 
-    def to_array(self) -> dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Equivalente a ``PersonaMoral::toArray()`` (campos propios + los de ``Persona``)."""
         return {
             "razon_social": self.razon_social,
             "regimen_de_capital": self.regimen_de_capital,
             "fecha_constitucion": self.fecha_constitucion,
-            **super().to_array(),
+            **super().to_dict(),
         }

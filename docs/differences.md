@@ -11,7 +11,7 @@ y de cada flujo se conserva salvo donde se indica explícitamente.
 | Validación del RFC | `Rfc::parse()` lanza `InvalidExpressionToParseException` | `str.strip()` + `stdnum.mx.rfc.validate()` lanza `stdnum.exceptions.ValidationError` (subclase de `ValueError`) |
 | ¿Es persona física? | `$rfc->isFisica()` | `len(rfc) == 13` después del `trim()` (equivalente al formato del RFC) |
 | Getters/setters | `getRfc()` / `setRfc()` … | atributos directos: `person.rfc`, `person.id_cif`, … (los getters/setters de PHP se colapsan a atributos) |
-| `toArray()` / `jsonSerialize()` | `to_array()` / `json` | `to_array()` / `person.model_dump_json()` |
+| `toArray()` / `jsonSerialize()` | `to_dict()` / `json` | `to_dict()` / `person.model_dump_json()` |
 | Datos dinámicos | `Persona::$data` vía `__set`/`__get` | `Persona.extra_data` (dict) vía `__setattr__`/`__getattr__`/`__delattr__` |
 | Resolución de nombres | `is_callable` (insensible a mayúsculas) sobre `set{Nombre}`/`get{Nombre}` | normalización `nombre.replace("_", "").lower()` contra los campos del modelo (admite `Curp` → `curp`, `ApellidoPaterno` → `apellido_paterno`, `Al` → `al`) |
 | `__isset($person->x)` | `isset()` → `__isset()` | `getattr(person, "x", None) is not None` (los ausentes lanzan `AttributeError`) |
@@ -44,7 +44,7 @@ Todos los códigos/atributos originales se conservan: `CifDownloadException` man
   `{"date": "…", "timezone_type": 3, "timezone": "UTC"}`.
 - Python `model_dump_json()` serializa las fechas como ISO-8601
   (`"2019-02-21T00:00:00"`) y los `None` como `null`.
-- `to_array()` en ambos devuelve objetos fecha (no cadenas): `DateTimeImmutable`
+- `to_dict()` en ambos devuelve objetos fecha (no cadenas): `DateTimeImmutable`
   vs `datetime` de Python (naive, construido con `strptime('%d-%m-%Y')`).
 - Los tests JSON del original solo comparan fechas `null`, por lo que no hay
   expectativas en conflicto.

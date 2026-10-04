@@ -42,7 +42,7 @@ class PersonaFisica(Persona):
             "Al": "AL:",
         }
 
-    def to_array(self) -> dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Equivalente a ``PersonaFisica::toArray()`` (campos propios + los de ``Persona``)."""
         return {
             "curp": self.curp,
@@ -50,5 +50,5 @@ class PersonaFisica(Persona):
             "apellido_paterno": self.apellido_paterno,
             "apellido_materno": self.apellido_materno,
             "fecha_nacimiento": self.fecha_nacimiento,
-            **super().to_array(),
+            **super().to_dict(),
         }

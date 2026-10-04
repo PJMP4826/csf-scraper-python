@@ -40,12 +40,12 @@ if len(person.rfc) == 13:  # persona física
 else:  # persona moral
     print(person.razon_social)
 
-# Array de datos (equivalente a toArray()) o JSON (ISO-8601 en fechas)
-data = person.to_array()
+# Dict de datos (equivalente a toArray()) o JSON (ISO-8601 en fechas)
+data = person.to_dict()
 json_text = person.model_dump_json()
 ```
 
-Salida de `person.to_array()` para una persona moral (fechas como `datetime`):
+Salida de `person.to_dict()` para una persona moral (fechas como `datetime`):
 
 ```python
 {
