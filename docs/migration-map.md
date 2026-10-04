@@ -7,71 +7,76 @@
 - **Clon local del origen** (para copiar fixtures): `/tmp/opencode/csf-scraper-upstream`
 - **Paquete Python destino**: `csf-scraper` (import: `csf_scraper`), raíz `src/csf_scraper/`
 
-Estados: `pendiente` → `migrado` (se actualizan conforme avanza cada fase).
+Estados históricos: `pendiente` → `migrado`. **Todos los archivos están `migrado` al cierre de la Fase 5.**
+
+Archivos auxiliares sin origen PHP (necesarios para el port):
+`src/csf_scraper/date_parser.py` (emulación de `DateTimeImmutable::createFromFormat('!d-m-Y')`),
+`src/csf_scraper/text_utils.py` (helpers `trim`/`\s`/`normalize-space`),
+`src/csf_scraper/pdf_reader/__init__.py`, `tests/helpers.py` (lectura de fixtures).
 
 ## 1. Archivos de `src/` (100%)
 
 | Archivo PHP origen | Archivo Python destino | Estado | Notas |
 |---|---|---|---|
-| `src/DataExtractor.php` | `src/csf_scraper/data_extractor.py` | pendiente | DomCrawler/CSS+XPath → BeautifulSoup4+lxml |
-| `src/Interfaces/DataExtractorInterface.php` | `src/csf_scraper/interfaces.py` (`DataExtractorInterface`) | pendiente | interfaz → `typing.Protocol` |
-| `src/Interfaces/ScraperInterface.php` | `src/csf_scraper/interfaces.py` (`ScraperInterface`) | pendiente | interfaz → `typing.Protocol` |
-| `src/Exceptions/CsfScraperException.php` | `src/csf_scraper/exceptions/__init__.py` (`CsfScraperException`) | pendiente | interfaz Throwable → clase base de excepción |
-| `src/Exceptions/CifDownloadException.php` | `src/csf_scraper/exceptions/__init__.py` | pendiente | conserva `url` y `previous` |
-| `src/Exceptions/CifNotFoundException.php` | `src/csf_scraper/exceptions/__init__.py` | pendiente | |
-| `src/Exceptions/PdfReader/CifFromPdfNotFoundException.php` | `src/csf_scraper/exceptions/pdf_reader.py` | pendiente | |
-| `src/Exceptions/PdfReader/EmptyPdfContentException.php` | `src/csf_scraper/exceptions/pdf_reader.py` | pendiente | |
-| `src/Exceptions/PdfReader/PdfToTextConvertException.php` | `src/csf_scraper/exceptions/pdf_reader.py` | pendiente | conserva `command`, `exit_code`, `output`, `error` |
-| `src/Exceptions/PdfReader/RfcFromPdfNotFoundException.php` | `src/csf_scraper/exceptions/pdf_reader.py` | pendiente | |
-| `src/PdfReader/CsfExtractor.php` | `src/csf_scraper/pdf_reader/csf_extractor.py` | pendiente | parsing de texto plano (sin dependencias) |
-| `src/PdfReader/PdfToText.php` | `src/csf_scraper/pdf_reader/pdf_to_text.py` | pendiente | **symfony/process → `subprocess`** (ver §3) |
-| `src/Persona.php` | `src/csf_scraper/persona.py` | pendiente | modelo pydantic + comportamiento dinámico (`__set`/`__get`/`__isset`/`__unset`) |
-| `src/PersonaFisica.php` | `src/csf_scraper/persona_fisica.py` | pendiente | modelo pydantic |
-| `src/PersonaMoral.php` | `src/csf_scraper/persona_moral.py` | pendiente | modelo pydantic |
-| `src/Regimen.php` | `src/csf_scraper/regimen.py` | pendiente | modelo pydantic + catálogo de regímenes + `set_regimen` |
-| `src/Regimenes.php` | `src/csf_scraper/regimenes.py` | pendiente | modelo pydantic (colección) |
-| `src/Scraper.php` | `src/csf_scraper/scraper.py` | pendiente | flujo HTTP con httpx; `Scraper::$url` → atributo de clase |
-| *(externo)* `GuzzleHttp\ClientInterface` / `Psr\Http\Client\ClientExceptionInterface` | `src/csf_scraper/interfaces.py` (`HttpClientInterface`) | pendiente | Protocol inyectado por constructor (regla 4) |
-| *(externo)* `PhpCfdi\Rfc\Rfc` | `python-stdnum` → `stdnum.mx.rfc` (uso directo en `scraper.py`) | pendiente | sin wrapper propio; ver §5 |
+| `src/DataExtractor.php` | `src/csf_scraper/data_extractor.py` | migrado | DomCrawler/CSS+XPath → BeautifulSoup4+lxml |
+| `src/Interfaces/DataExtractorInterface.php` | `src/csf_scraper/interfaces.py` (`DataExtractorInterface`) | migrado | interfaz → `typing.Protocol` |
+| `src/Interfaces/ScraperInterface.php` | `src/csf_scraper/interfaces.py` (`ScraperInterface`) | migrado | interfaz → `typing.Protocol` |
+| `src/Exceptions/CsfScraperException.php` | `src/csf_scraper/exceptions/__init__.py` (`CsfScraperException`) | migrado | interfaz Throwable → clase base de excepción |
+| `src/Exceptions/CifDownloadException.php` | `src/csf_scraper/exceptions/__init__.py` | migrado | conserva `url` y `previous` |
+| `src/Exceptions/CifNotFoundException.php` | `src/csf_scraper/exceptions/__init__.py` | migrado | |
+| `src/Exceptions/PdfReader/CifFromPdfNotFoundException.php` | `src/csf_scraper/exceptions/pdf_reader.py` | migrado | |
+| `src/Exceptions/PdfReader/EmptyPdfContentException.php` | `src/csf_scraper/exceptions/pdf_reader.py` | migrado | |
+| `src/Exceptions/PdfReader/PdfToTextConvertException.php` | `src/csf_scraper/exceptions/pdf_reader.py` | migrado | conserva `command`, `exit_code`, `output`, `error` |
+| `src/Exceptions/PdfReader/RfcFromPdfNotFoundException.php` | `src/csf_scraper/exceptions/pdf_reader.py` | migrado | |
+| `src/PdfReader/CsfExtractor.php` | `src/csf_scraper/pdf_reader/csf_extractor.py` | migrado | parsing de texto plano (sin dependencias) |
+| `src/PdfReader/PdfToText.php` | `src/csf_scraper/pdf_reader/pdf_to_text.py` | migrado | **symfony/process → `subprocess`** (ver §3) |
+| `src/Persona.php` | `src/csf_scraper/persona.py` | migrado | modelo pydantic + comportamiento dinámico (`__set`/`__get`/`__isset`/`__unset`) |
+| `src/PersonaFisica.php` | `src/csf_scraper/persona_fisica.py` | migrado | modelo pydantic |
+| `src/PersonaMoral.php` | `src/csf_scraper/persona_moral.py` | migrado | modelo pydantic |
+| `src/Regimen.php` | `src/csf_scraper/regimen.py` | migrado | modelo pydantic + catálogo de regímenes + `set_regimen` |
+| `src/Regimenes.php` | `src/csf_scraper/regimenes.py` | migrado | modelo pydantic (colección) |
+| `src/Scraper.php` | `src/csf_scraper/scraper.py` | migrado | flujo HTTP con httpx; `Scraper::$url` → atributo de clase |
+| *(externo)* `GuzzleHttp\ClientInterface` / `Psr\Http\Client\ClientExceptionInterface` | `httpx.Client` concreto (inyectado por constructor en `scraper.py`) | migrado | no se creó `HttpClientInterface`: el original tampoco define una interfaz propia de cliente |
+| *(externo)* `PhpCfdi\Rfc\Rfc` | `python-stdnum` → `stdnum.mx.rfc` (uso directo en `scraper.py`) | migrado | sin wrapper propio; ver §5 y `differences.md` |
 
 ## 2. Archivos de `tests/` (100%)
 
 | Archivo PHP origen | Archivo Python destino | Estado | Notas |
 |---|---|---|---|
-| `tests/bootstrap.php` | `tests/conftest.py` (+ `[tool.pytest.ini_options]` en `pyproject.toml`) | pendiente | autoload de composer → pytest |
-| `tests/TestCase.php` | `tests/conftest.py` (`file_path` / `file_contents`) | pendiente | métodos estáticos → fixtures |
-| `tests/Integration/Helpers/ScraperHelper.php` | `tests/integration/helpers.py` (`ScraperHelper`) | pendiente | subclase que pisa `pdf_to_text_content` |
-| `tests/Integration/ScrapCsfFromRfcAndCifTest.php` | `tests/integration/test_scrap_csf_from_rfc_and_cif.py` | pendiente | MockHandler → respx (7 tests) |
-| `tests/Integration/ScrapFromCsfFileTest.php` | `tests/integration/test_scrap_from_csf_file.py` | pendiente | 2 tests con red real → respx (§4); 3 tests con `pdftotext` |
-| `tests/Unit/ScraperTest.php` | `tests/unit/test_scraper.py` | pendiente | `getConfig('curl')` → introspección del `SSLContext` (§5) |
-| `tests/Unit/Exceptions/CifDownloadExceptionTest.php` | `tests/unit/exceptions/test_cif_download_exception.py` | pendiente | |
-| `tests/Unit/Exceptions/CifNotFoundExceptionTest.php` | `tests/unit/exceptions/test_cif_not_found_exception.py` | pendiente | |
-| `tests/Unit/Exceptions/PdfReader/CifFromPdfNotFoundExceptionTest.php` | `tests/unit/exceptions/pdf_reader/test_cif_from_pdf_not_found_exception.py` | pendiente | |
-| `tests/Unit/Exceptions/PdfReader/EmptyPdfContentExceptionTest.php` | `tests/unit/exceptions/pdf_reader/test_empty_pdf_content_exception.py` | pendiente | |
-| `tests/Unit/Exceptions/PdfReader/PdfToTextConvertExceptionTest.php` | `tests/unit/exceptions/pdf_reader/test_pdf_to_text_convert_exception.py` | pendiente | |
-| `tests/Unit/Exceptions/PdfReader/RfcFromPdfNotFoundExceptionTest.php` | `tests/unit/exceptions/pdf_reader/test_rfc_from_pdf_not_found_exception.py` | pendiente | |
-| `tests/Unit/PdfReader/CsfExtractor/GetCifIdTest.php` | `tests/unit/pdf_reader/csf_extractor/test_get_cif_id.py` | pendiente | |
-| `tests/Unit/PdfReader/CsfExtractor/GetRfcTest.php` | `tests/unit/pdf_reader/csf_extractor/test_get_rfc.py` | pendiente | |
-| `tests/Unit/PdfReader/PdfToText/PdfToTextConstructorTest.php` | `tests/unit/pdf_reader/pdf_to_text/test_pdf_to_text_constructor.py` | pendiente | `RuntimeException` de Symfony → `FileNotFoundError` (§5) |
-| `tests/Unit/Persona/CommonPersonaPropertiesTest.php` | `tests/unit/persona/test_common_persona_properties.py` | pendiente | data providers → `@pytest.mark.parametrize` |
-| `tests/Unit/Persona/PersonaFisicaPropertiesTest.php` | `tests/unit/persona/test_persona_fisica_properties.py` | pendiente | |
-| `tests/Unit/Persona/PersonaMoralPropertiesTest.php` | `tests/unit/persona/test_persona_moral_properties.py` | pendiente | |
-| `tests/Unit/Persona/PersonaJsonSerializeTest.php` | `tests/unit/persona/test_persona_json_serialize.py` | pendiente | |
-| `tests/Unit/Persona/Traits/PersonaTrait.php` | `tests/unit/persona/traits/persona_trait.py` | pendiente | trait con tests → módulo cuyas funciones se importan en cada test module |
-| `tests/Unit/RegimenesTest.php` | `tests/unit/test_regimenes.py` | pendiente | |
-| `tests/Unit/Regimen/RegimenJsonSerializeTest.php` | `tests/unit/regimen/test_regimen_json_serialize.py` | pendiente | |
-| `tests/Unit/Regimen/RegimenesJsonSerializeTest.php` | `tests/unit/regimen/test_regimenes_json_serialize.py` | pendiente | |
-| `tests/Unit/Regimen/SetRegimenTest.php` | `tests/unit/regimen/test_set_regimen.py` | pendiente | 21+3 casos del data provider → parametrize |
-| `tests/_files/csf-bad-content.txt` | `tests/_files/csf-bad-content.txt` | pendiente | copia literal |
-| `tests/_files/csf-content.txt` | `tests/_files/csf-content.txt` | pendiente | copia literal |
-| `tests/_files/csf-correct-but-invalid.pdf` | `tests/_files/csf-correct-but-invalid.pdf` | pendiente | copia literal |
-| `tests/_files/csf-without-cif.pdf` | `tests/_files/csf-without-cif.pdf` | pendiente | copia literal |
-| `tests/_files/csf-without-rfc.pdf` | `tests/_files/csf-without-rfc.pdf` | pendiente | copia literal |
-| `tests/_files/error.html` | `tests/_files/error.html` | pendiente | copia literal |
-| `tests/_files/scrap_fisica.html` | `tests/_files/scrap_fisica.html` | pendiente | copia literal |
-| `tests/_files/scrap_moral.html` | `tests/_files/scrap_moral.html` | pendiente | copia literal |
-| `tests/_files/scrap_moral_without_colonia.html` | `tests/_files/scrap_moral_without_colonia.html` | pendiente | copia literal |
-| `tests/_files/scrap_regimenes.html` | `tests/_files/scrap_regimenes.html` | pendiente | copia literal |
+| `tests/bootstrap.php` | `[tool.pytest.ini_options]` en `pyproject.toml` (`testpaths`, `pythonpath`) | migrado | autoload de composer → configuración de pytest (sin `conftest.py`) |
+| `tests/TestCase.php` | `tests/helpers.py` (`file_path` / `file_contents`, funciones) | migrado | métodos estáticos → funciones en módulo de ayuda |
+| `tests/Integration/Helpers/ScraperHelper.php` | `tests/integration/helpers.py` (`ScraperHelper`) | migrado | subclase que pisa `pdf_to_text_content` |
+| `tests/Integration/ScrapCsfFromRfcAndCifTest.php` | `tests/integration/test_scrap_csf_from_rfc_and_cif.py` | migrado | MockHandler → respx (7 tests) |
+| `tests/Integration/ScrapFromCsfFileTest.php` | `tests/integration/test_scrap_from_csf_file.py` | migrado | 2 tests con red real → respx (§4); 3 tests con `pdftotext` |
+| `tests/Unit/ScraperTest.php` | `tests/unit/test_scraper.py` | migrado | `getConfig('curl')` → introspección del `SSLContext` (§5) |
+| `tests/Unit/Exceptions/CifDownloadExceptionTest.php` | `tests/unit/exceptions/test_cif_download_exception.py` | migrado | |
+| `tests/Unit/Exceptions/CifNotFoundExceptionTest.php` | `tests/unit/exceptions/test_cif_not_found_exception.py` | migrado | |
+| `tests/Unit/Exceptions/PdfReader/CifFromPdfNotFoundExceptionTest.php` | `tests/unit/exceptions/pdf_reader/test_cif_from_pdf_not_found_exception.py` | migrado | |
+| `tests/Unit/Exceptions/PdfReader/EmptyPdfContentExceptionTest.php` | `tests/unit/exceptions/pdf_reader/test_empty_pdf_content_exception.py` | migrado | |
+| `tests/Unit/Exceptions/PdfReader/PdfToTextConvertExceptionTest.php` | `tests/unit/exceptions/pdf_reader/test_pdf_to_text_convert_exception.py` | migrado | |
+| `tests/Unit/Exceptions/PdfReader/RfcFromPdfNotFoundExceptionTest.php` | `tests/unit/exceptions/pdf_reader/test_rfc_from_pdf_not_found_exception.py` | migrado | |
+| `tests/Unit/PdfReader/CsfExtractor/GetCifIdTest.php` | `tests/unit/pdf_reader/csf_extractor/test_get_cif_id.py` | migrado | |
+| `tests/Unit/PdfReader/CsfExtractor/GetRfcTest.php` | `tests/unit/pdf_reader/csf_extractor/test_get_rfc.py` | migrado | |
+| `tests/Unit/PdfReader/PdfToText/PdfToTextConstructorTest.php` | `tests/unit/pdf_reader/pdf_to_text/test_pdf_to_text_constructor.py` | migrado | `RuntimeException` de Symfony → `FileNotFoundError` (§5) |
+| `tests/Unit/Persona/CommonPersonaPropertiesTest.php` | `tests/unit/persona/test_common_persona_properties.py` | migrado | data providers → `@pytest.mark.parametrize` |
+| `tests/Unit/Persona/PersonaFisicaPropertiesTest.php` | `tests/unit/persona/test_persona_fisica_properties.py` | migrado | |
+| `tests/Unit/Persona/PersonaMoralPropertiesTest.php` | `tests/unit/persona/test_persona_moral_properties.py` | migrado | |
+| `tests/Unit/Persona/PersonaJsonSerializeTest.php` | `tests/unit/persona/test_persona_json_serialize.py` | migrado | |
+| `tests/Unit/Persona/Traits/PersonaTrait.php` | `tests/unit/persona/traits/persona_trait.py` | migrado | trait con tests → módulo cuyas funciones se importan en cada test module |
+| `tests/Unit/RegimenesTest.php` | `tests/unit/test_regimenes.py` | migrado | |
+| `tests/Unit/Regimen/RegimenJsonSerializeTest.php` | `tests/unit/regimen/test_regimen_json_serialize.py` | migrado | |
+| `tests/Unit/Regimen/RegimenesJsonSerializeTest.php` | `tests/unit/regimen/test_regimenes_json_serialize.py` | migrado | |
+| `tests/Unit/Regimen/SetRegimenTest.php` | `tests/unit/regimen/test_set_regimen.py` | migrado | 28 casos del data provider → parametrize |
+| `tests/_files/csf-bad-content.txt` | `tests/_files/csf-bad-content.txt` | migrado | copia literal |
+| `tests/_files/csf-content.txt` | `tests/_files/csf-content.txt` | migrado | copia literal |
+| `tests/_files/csf-correct-but-invalid.pdf` | `tests/_files/csf-correct-but-invalid.pdf` | migrado | copia literal |
+| `tests/_files/csf-without-cif.pdf` | `tests/_files/csf-without-cif.pdf` | migrado | copia literal |
+| `tests/_files/csf-without-rfc.pdf` | `tests/_files/csf-without-rfc.pdf` | migrado | copia literal |
+| `tests/_files/error.html` | `tests/_files/error.html` | migrado | copia literal |
+| `tests/_files/scrap_fisica.html` | `tests/_files/scrap_fisica.html` | migrado | copia literal |
+| `tests/_files/scrap_moral.html` | `tests/_files/scrap_moral.html` | migrado | copia literal |
+| `tests/_files/scrap_moral_without_colonia.html` | `tests/_files/scrap_moral_without_colonia.html` | migrado | copia literal |
+| `tests/_files/scrap_regimenes.html` | `tests/_files/scrap_regimenes.html` | migrado | copia literal |
 
 **Recuento de tests origen**: 53 métodos de test → **90 casos de test** (40 expandidos por data providers/traits).
 Desglose: Integration 12, Persona 31 (17+7+5 de las 3 clases con trait +2 json), Regimén 30 (28+2 json), Regimenes 1, Scraper 1, Exceptions 8, PdfReader 7.
@@ -109,7 +114,7 @@ Un único punto de uso: **`src/PdfReader/PdfToText.php`**.
 | `ScrapFromCsfFileTest::test_obtain_from_pdf_with_invalid_data` | **RED REAL** (`Scraper::create()` contra `siat.sat.gob.mx`) | respx: 200 con fixture `error.html` (decidido, sin red real) |
 | El resto (unit/exceptions/pdf/persona/regimen) | sin HTTP | sin HTTP |
 
-Ningún test del original afirma el URL construido (el `MockHandler` responde sin importar la URL); en la portación la ruta respx se fija al URL completo esperado (`?D1=10&D2=1&D3=<idCIF>_<RFC>`), lo cual además valida el formateo.
+Ningún test del original afirma el URL construido (el `MockHandler` responde sin importar la URL); en la portación la ruta respx se fija por prefijo con regex al URL del validador SAT (`^https://siat.sat.gob\.mx/…/validadorqr.jsf`), manteniendo la misma flexibilidad que el `MockHandler` original.
 
 ## 5. TLS, headers, cookies, user-agent, reintentos, timeouts (Fase 0.e)
 
