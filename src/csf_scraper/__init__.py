@@ -17,6 +17,7 @@ from csf_scraper.persona_fisica import PersonaFisica
 from csf_scraper.persona_moral import PersonaMoral
 from csf_scraper.regimen import Regimen
 from csf_scraper.regimenes import Regimenes
+from csf_scraper.scraper import Scraper
 
 __all__ = [
     "CifDownloadException",
@@ -32,4 +33,5 @@ __all__ = [
     "Regimen",
     "Regimenes",
     "RfcFromPdfNotFoundException",
+    "Scraper",
 ]

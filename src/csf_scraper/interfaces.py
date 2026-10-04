@@ -12,3 +12,15 @@ class DataExtractorInterface(Protocol):
     def extract(self, is_fisica: bool) -> PersonaMoral | PersonaFisica:
         """Extrae la información de la persona desde el HTML del CSF."""
         ...
+
+
+class ScraperInterface(Protocol):
+    """Equivalente a ``PhpCfdi\\CsfScraper\\Interfaces\\ScraperInterface``."""
+
+    def obtain_from_rfc_and_cif(self, rfc: str, id_cif: str) -> PersonaMoral | PersonaFisica:
+        """Obtiene la persona con la información del sitio del SAT."""
+        ...
+
+    def obtain_from_pdf_path(self, path: str) -> PersonaMoral | PersonaFisica:
+        """Obtiene la persona; el RFC y el idCIF se leen de la CSF en PDF."""
+        ...
