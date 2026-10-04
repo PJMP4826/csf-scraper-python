@@ -11,6 +11,8 @@ from csf_scraper.exceptions.pdf_reader import (
     PdfToTextConvertException,
     RfcFromPdfNotFoundException,
 )
+from csf_scraper.regimen import Regimen
+from csf_scraper.regimenes import Regimenes
 
 __all__ = [
     "CifDownloadException",
@@ -19,5 +21,7 @@ __all__ = [
     "CsfScraperException",
     "EmptyPdfContentException",
     "PdfToTextConvertException",
+    "Regimen",
+    "Regimenes",
     "RfcFromPdfNotFoundException",
 ]
