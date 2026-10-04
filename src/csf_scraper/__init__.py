@@ -11,6 +11,9 @@ from csf_scraper.exceptions.pdf_reader import (
     PdfToTextConvertException,
     RfcFromPdfNotFoundException,
 )
+from csf_scraper.persona import Persona
+from csf_scraper.persona_fisica import PersonaFisica
+from csf_scraper.persona_moral import PersonaMoral
 from csf_scraper.regimen import Regimen
 from csf_scraper.regimenes import Regimenes
 
@@ -21,6 +24,9 @@ __all__ = [
     "CsfScraperException",
     "EmptyPdfContentException",
     "PdfToTextConvertException",
+    "Persona",
+    "PersonaFisica",
+    "PersonaMoral",
     "Regimen",
     "Regimenes",
     "RfcFromPdfNotFoundException",
