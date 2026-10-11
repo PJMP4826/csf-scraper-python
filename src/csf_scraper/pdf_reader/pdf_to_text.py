@@ -1,4 +1,4 @@
-"""Conversión de PDF a texto con ``pdftotext`` (migración de ``src/PdfReader/PdfToText.php``)."""
+"""Conversión de PDF a texto mediante el binario ``pdftotext``."""
 
 import subprocess
 
@@ -6,16 +6,13 @@ from csf_scraper.exceptions.pdf_reader import PdfToTextConvertException
 
 
 class PdfToText:
-    """Extrae el contenido de un PDF usando ``pdftotext`` (paquete ``poppler-utils``).
+    """Extrae el contenido de un PDF usando ``pdftotext`` (paquete ``poppler-utils``)."""
 
-    Equivalente a ``PhpCfdi\\CsfScraper\\PdfReader\\PdfToText`` (clase ``final readonly``).
-    """
-
-    def __init__(self, path_pdf_to_text: str = "") -> None:
-        self._pdftotext = path_pdf_to_text if path_pdf_to_text != "" else "pdftotext"
+    def __init__(self, executable: str = "pdftotext") -> None:
+        self._executable = executable
 
     def extract(self, path: str) -> str:
-        """Equivalente a ``extract()``; lanza ``PdfToTextConvertException`` si falla."""
+        """Devuelve el texto del PDF; lanza :class:`PdfToTextConvertException` si falla."""
         command = self.build_command(path)
         result = subprocess.run(command, capture_output=True, check=False)
         if result.returncode != 0:
@@ -29,5 +26,5 @@ class PdfToText:
         return result.stdout.decode("utf-8", errors="replace")
 
     def build_command(self, pdf_file: str) -> list[str]:
-        """Equivalente a ``buildCommand()``: argumentos de ``pdftotext``."""
-        return [self._pdftotext, "-eol", "unix", "-raw", "-q", pdf_file, "-"]
+        """Argumentos con los que se invoca a ``pdftotext``."""
+        return [self._executable, "-eol", "unix", "-raw", "-q", pdf_file, "-"]
