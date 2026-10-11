@@ -1,14 +1,14 @@
 import json
 
-from csf_scraper import Regimen, Regimenes
+from pydantic import TypeAdapter
+
+from csf_scraper import Regimen
 
 
 def test_serialize_default_regimenes() -> None:
-    regimenes = Regimenes()
+    regimenes = [Regimen(), Regimen()]
 
-    regimenes.add_regimen(Regimen(), Regimen())
-
-    data = json.loads(regimenes.model_dump_json())
+    data = json.loads(TypeAdapter(list[Regimen]).dump_json(regimenes))
 
     assert data == [
         {

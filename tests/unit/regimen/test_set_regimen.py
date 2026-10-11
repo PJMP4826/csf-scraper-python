@@ -37,31 +37,27 @@ REGIMENES_PROVIDER = [
 
 @pytest.mark.parametrize(("regimen_text", "regimen_id_expected"), REGIMENES_PROVIDER)
 def test_check_regimenes_are_well_assigned(regimen_text: str, regimen_id_expected: str) -> None:
-    regimen = Regimen()
-    regimen.set_regimen(regimen_text)
+    regimen = Regimen(regimen=regimen_text)
 
     assert regimen.regimen == regimen_text
     assert regimen.regimen_id == regimen_id_expected
 
 
 def test_detect_correct_regimen_case_insensitive() -> None:
-    regimen = Regimen()
-    regimen.set_regimen("DEMÁS INGRESOS")
+    regimen = Regimen(regimen="DEMÁS INGRESOS")
 
     assert regimen.regimen_id == "608"
 
 
 def test_returns_empty_when_not_found() -> None:
-    regimen = Regimen()
-    regimen.set_regimen("regimen no incluido")
+    regimen = Regimen(regimen="regimen no incluido")
 
     assert regimen.regimen_id == ""
 
 
 def test_fecha_alta_with_valid_value() -> None:
     input_value = "01-02-2001"
-    regimen = Regimen()
-    regimen.set_fecha_alta(input_value)
+    regimen = Regimen(fecha_alta=input_value)
     fecha_alta = regimen.fecha_alta
     if fecha_alta is None:
         pytest.fail(f"Fecha alta {input_value} was not interpreted")
@@ -74,9 +70,7 @@ def test_fecha_alta_with_valid_value() -> None:
 
 
 def test_fecha_alta_with_empty_value() -> None:
-    input_value = ""
-    regimen = Regimen()
-    regimen.set_fecha_alta(input_value)
+    regimen = Regimen(fecha_alta="")
     assert regimen.fecha_alta is None
 
 
@@ -89,6 +83,5 @@ def test_fecha_alta_with_empty_value() -> None:
     ],
 )
 def test_fecha_alta_with_invalid_value(input_value: str) -> None:
-    regimen = Regimen()
-    regimen.set_fecha_alta(input_value)
+    regimen = Regimen(fecha_alta=input_value)
     assert regimen.fecha_alta is None

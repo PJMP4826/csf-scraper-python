@@ -1,16 +1,13 @@
-from csf_scraper import Regimen, Regimenes
+from csf_scraper import PersonaMoral, Regimen
 
 
 def test_add_regimenes() -> None:
-    first = Regimen()
-    first.set_regimen("Sin obligaciones fiscales")
-    second = Regimen()
-    second.set_regimen("Demás ingresos")
+    person = PersonaMoral()
+    first = Regimen(regimen="Sin obligaciones fiscales")
+    second = Regimen(regimen="Demás ingresos")
 
-    regimenes = Regimenes()
-    regimenes.add_regimen(first, second)
+    person.regimenes.extend([first, second])
 
-    result = regimenes.get_regimenes()
-    assert len(result) == 2
-    assert result[0] is first
-    assert result[1] is second
+    assert len(person.regimenes) == 2
+    assert person.regimenes[0] is first
+    assert person.regimenes[1] is second
