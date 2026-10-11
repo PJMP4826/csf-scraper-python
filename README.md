@@ -35,9 +35,9 @@ person = scraper.obtain_from_rfc_and_cif("DIM8701081LA", "1904014102123")
 person = scraper.obtain_from_pdf_path("ruta/al/csf.pdf")
 
 # Acceso a los datos de la persona (moral o física) por atributos
-if len(person.rfc) == 13:  # persona física
+if person.is_fisica():
     print(person.nombre)
-else:  # persona moral
+elif person.is_moral():
     print(person.razon_social)
 
 # Regímenes: lista de Regimen, cada uno con su id ya calculado
@@ -78,6 +78,8 @@ Salida de `person.to_dict()` para una persona moral (fechas como `datetime`):
 
 - `Persona` es la base de `PersonaFisica` y `PersonaMoral`; sus campos se
   exponen como atributos en `snake_case` (`rfc`, `id_cif`, `colonia`, …).
+- `is_fisica()` e `is_moral()` permiten distinguir el tipo de persona sin
+  inspeccionar el RFC por fuera de la librería.
 - `Regimen` se construye con el texto del régimen y, opcionalmente, la fecha de
   alta: `Regimen(regimen="Régimen Simplificado de Confianza", fecha_alta="01-02-2001")`.
   El atributo `regimen_id` se calcula a partir del texto y `fecha_alta` acepta

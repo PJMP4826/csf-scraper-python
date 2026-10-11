@@ -49,6 +49,14 @@ class Persona(BaseModel):
         "al": "AL:",
     }
 
+    def is_fisica(self) -> bool:
+        """Indica si la persona es física (RFC de 13 caracteres)."""
+        return len(self.rfc) == 13
+
+    def is_moral(self) -> bool:
+        """Indica si la persona es moral (RFC distinto de 13 caracteres)."""
+        return not self.is_fisica()
+
     def to_dict(self) -> dict[str, Any]:
         """Devuelve los datos como un diccionario plano (envoltura de :meth:`model_dump`)."""
         return self.model_dump()
