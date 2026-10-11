@@ -1,35 +1,27 @@
-"""Traducción de ``tests/Unit/Persona/Traits/PersonaTrait.php``.
-
-El trait de PHPUnit se comparte entre ``CommonPersonaPropertiesTest``,
-``PersonaFisicaPropertiesTest`` y ``PersonaMoralPropertiesTest``; aquí los tests
-compartidos se importan en cada módulo de test (pytest los recolecta por nombre).
-"""
+"""Utilidades y casos de prueba compartidos por los modelos de persona."""
 
 from typing import Any
 
 from csf_scraper import Persona, Regimen
 
 
-def set_and_get_property(person: Persona, complement_function: str, value: Any) -> Any:
-    """Equivalente a ``PersonaTrait::setAndGetProperty`` (asigna y lee la propiedad)."""
-    setattr(person, complement_function, value)
-    return getattr(person, complement_function)
+def set_and_get_property(person: Persona, attribute: str, value: Any) -> Any:
+    """Asigna una propiedad y devuelve el valor leído."""
+    setattr(person, attribute, value)
+    return getattr(person, attribute)
 
 
 def test_allows_more_than_one_regimen(person: Persona) -> None:
-    first = Regimen()
-    first.set_regimen("Simplificado de confianza")
-    second = Regimen()
-    second.set_regimen("Demás ingresos")
+    first = Regimen(regimen="Simplificado de confianza")
+    second = Regimen(regimen="Demás ingresos")
 
-    person.add_regimenes(first, second)
+    person.regimenes = [first, second]
 
-    result = person.regimenes.get_regimenes()
-    assert len(result) == 2
-    assert result[0] is first
-    assert result[1] is second
+    assert len(person.regimenes) == 2
+    assert person.regimenes[0] is first
+    assert person.regimenes[1] is second
 
 
 def test_assign_dynamic_property(person: Persona) -> None:
-    person.dynamic = "dynamic"
-    assert person.dynamic == "dynamic"
+    person.extra_data["dynamic"] = "dynamic"
+    assert person.extra_data["dynamic"] == "dynamic"

@@ -31,21 +31,21 @@ def person() -> PersonaFisica:
     return PersonaFisica()
 
 
-@pytest.mark.parametrize(("complement_function", "value"), STRING_PROPERTIES_PROVIDER)
+@pytest.mark.parametrize(("attribute", "value"), STRING_PROPERTIES_PROVIDER)
 def test_set_and_get_string_properties(
     person: PersonaFisica,
-    complement_function: str,
+    attribute: str,
     value: str,
 ) -> None:
-    result = set_and_get_property(person, complement_function, value)
+    result = set_and_get_property(person, attribute, value)
     assert result == value
 
 
-@pytest.mark.parametrize(("complement_function", "value"), DATE_PROPERTIES_PROVIDER)
+@pytest.mark.parametrize(("attribute", "value"), DATE_PROPERTIES_PROVIDER)
 def test_set_and_get_date_properties(
     person: PersonaFisica,
-    complement_function: str,
+    attribute: str,
     value: str,
 ) -> None:
-    result = set_and_get_property(person, complement_function, value)
+    result = set_and_get_property(person, attribute, value)
     assert result == datetime.strptime(value, "%d-%m-%Y")

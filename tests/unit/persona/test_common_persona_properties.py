@@ -35,43 +35,41 @@ def person() -> PersonaMoral:
     return PersonaMoral()
 
 
-@pytest.mark.parametrize(("complement_function", "value"), STRING_PROPERTIES_PROVIDER)
+@pytest.mark.parametrize(("attribute", "value"), STRING_PROPERTIES_PROVIDER)
 def test_set_and_get_string_properties(
     person: PersonaMoral,
-    complement_function: str,
+    attribute: str,
     value: str,
 ) -> None:
-    result = set_and_get_property(person, complement_function, value)
+    result = set_and_get_property(person, attribute, value)
     assert result == value
 
 
-@pytest.mark.parametrize(("complement_function", "value"), DATE_PROPERTIES_PROVIDER)
+@pytest.mark.parametrize(("attribute", "value"), DATE_PROPERTIES_PROVIDER)
 def test_set_and_get_date_properties(
     person: PersonaMoral,
-    complement_function: str,
+    attribute: str,
     value: str,
 ) -> None:
-    result = set_and_get_property(person, complement_function, value)
+    result = set_and_get_property(person, attribute, value)
     assert result == datetime.strptime(value, "%d-%m-%Y")
 
 
-def test_assign_dynamic_property(person: PersonaMoral) -> None:
-    dynamic_value = "foo"
-    person.dynamic = dynamic_value
-    assert person.dynamic == dynamic_value
+def test_assign_extra_data(person: PersonaMoral) -> None:
+    person.extra_data["dynamic"] = "foo"
+    assert person.extra_data["dynamic"] == "foo"
 
 
-def test_isset_property_method(person: PersonaMoral) -> None:
-    person.dynamic = "foo"
+def test_extra_data_membership(person: PersonaMoral) -> None:
+    person.extra_data["dynamic"] = "foo"
 
-    # isset($person->{'dynamic'}) / isset($person->{'dynamic2'})
-    assert person.dynamic is not None
-    assert getattr(person, "dynamic2", None) is None
+    assert person.extra_data.get("dynamic") is not None
+    assert person.extra_data.get("dynamic2") is None
 
 
-def test_unset_method(person: PersonaMoral) -> None:
-    person.dynamic = "foo"
-    assert person.dynamic is not None
+def test_delete_extra_data(person: PersonaMoral) -> None:
+    person.extra_data["dynamic"] = "foo"
+    assert person.extra_data.get("dynamic") is not None
 
-    del person.dynamic
-    assert getattr(person, "dynamic", None) is None
+    del person.extra_data["dynamic"]
+    assert person.extra_data.get("dynamic") is None
