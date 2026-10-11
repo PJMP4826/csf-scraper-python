@@ -1,5 +1,3 @@
-"""Migración de ``tests/Integration/ScrapCsfFromRfcAndCifTest.php``."""
-
 from datetime import datetime
 
 import httpx
@@ -13,7 +11,6 @@ from tests.integration.helpers import VALIDADOR_URL_REGEX
 
 
 def prepare_scraper(html_response: str) -> Scraper:
-    """Equivalente a ``ScrapCsfFromRfcAndCifTest::prepareScraper()``."""
     respx.get(url__regex=VALIDADOR_URL_REGEX).mock(
         return_value=httpx.Response(200, text=file_contents(html_response)),
     )
@@ -21,7 +18,6 @@ def prepare_scraper(html_response: str) -> Scraper:
 
 
 def d(value: str) -> datetime:
-    """Equivalente a ``DateTimeImmutable::createFromFormat('!d-m-Y', $value)``."""
     return datetime.strptime(value, "%d-%m-%Y")
 
 
@@ -56,7 +52,7 @@ def test_scrap_from_idcif_and_rfc_by_moral() -> None:
                 "fecha_alta": d("21-02-2019"),
             },
         ],
-        "extra_data": {"Localidad": ""},
+        "extra_data": {"localidad": ""},
     }
 
     data = csf_scrap.obtain_from_rfc_and_cif(rfc, idcif).to_dict()
@@ -97,7 +93,7 @@ def test_scrap_from_idcif_and_rfc_by_fisica() -> None:
                 "fecha_alta": d("01-01-2014"),
             },
         ],
-        "extra_data": {"Localidad": ""},
+        "extra_data": {"localidad": ""},
     }
 
     data = csf_scrap.obtain_from_rfc_and_cif(rfc, idcif).to_dict()
@@ -143,7 +139,7 @@ def test_scrap_from_idcif_and_rfc_multiple_regimen() -> None:
                 "fecha_alta": d("09-02-2022"),
             },
         ],
-        "extra_data": {"Localidad": ""},
+        "extra_data": {"localidad": ""},
     }
 
     data = csf_scrap.obtain_from_rfc_and_cif(rfc, idcif).to_dict()
@@ -182,7 +178,7 @@ def test_scrap_from_idcif_and_rfc_localidad_instead_of_colonia() -> None:
                 "fecha_alta": d("31-03-2001"),
             },
         ],
-        "extra_data": {"Localidad": "30210010"},
+        "extra_data": {"localidad": "30210010"},
     }
 
     data = csf_scrap.obtain_from_rfc_and_cif(rfc, idcif).to_dict()

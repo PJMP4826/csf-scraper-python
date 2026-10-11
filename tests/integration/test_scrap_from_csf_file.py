@@ -1,4 +1,4 @@
-"""Migración de ``tests/Integration/ScrapFromCsfFileTest.php``."""
+"""Pruebas de obtención de datos a partir de un archivo CSF en PDF."""
 
 import platform
 from datetime import datetime
@@ -17,7 +17,6 @@ from tests.integration.helpers import VALIDADOR_URL_REGEX, ScraperHelper
 
 
 def prepare_scraper(html_response: str) -> Scraper:
-    """Equivalente a ``ScrapFromCsfFileTest::prepareScraper()`` (usa ``ScraperHelper``)."""
     respx.get(url__regex=VALIDADOR_URL_REGEX).mock(
         return_value=httpx.Response(200, text=file_contents(html_response)),
     )
@@ -25,7 +24,6 @@ def prepare_scraper(html_response: str) -> Scraper:
 
 
 def d(value: str) -> datetime:
-    """Equivalente a ``DateTimeImmutable::createFromFormat('!d-m-Y', $value)``."""
     return datetime.strptime(value, "%d-%m-%Y")
 
 
@@ -58,7 +56,7 @@ def test_scrap_from_idcif_and_rfc_by_moral() -> None:
                 "fecha_alta": d("21-02-2019"),
             },
         ],
-        "extra_data": {"Localidad": ""},
+        "extra_data": {"localidad": ""},
     }
 
     data = csf_scrap.obtain_from_pdf_path("my-path").to_dict()
