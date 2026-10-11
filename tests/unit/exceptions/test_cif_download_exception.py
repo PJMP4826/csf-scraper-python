@@ -7,8 +7,15 @@ def test_implements_library_exception_type() -> None:
 
 def test_properties() -> None:
     url = "https://example.com"
-    previous = Exception("previous")
-    exception = CifDownloadException(url, previous)
+    exception = CifDownloadException(url)
 
     assert exception.url == url
-    assert exception.previous is previous
+    assert str(exception) == "The request has failed"
+
+
+def test_keeps_previous_exception_as_cause() -> None:
+    previous = ValueError("previous")
+    try:
+        raise CifDownloadException("https://example.com") from previous
+    except CifDownloadException as exception:
+        assert exception.__cause__ is previous

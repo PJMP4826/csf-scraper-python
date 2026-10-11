@@ -1,35 +1,22 @@
-"""Excepciones del lector de PDF (migración de ``src/Exceptions/PdfReader/*.php``)."""
+"""Excepciones del lector de PDF."""
 
 from csf_scraper.exceptions import CsfScraperException
 
 
 class CifFromPdfNotFoundException(CsfScraperException):
-    """No se pudo obtener el idCIF del PDF procesado.
-
-    Equivalente a ``Exceptions\\PdfReader\\CifFromPdfNotFoundException``.
-    """
+    """No se pudo obtener el idCIF del PDF procesado."""
 
 
 class EmptyPdfContentException(CsfScraperException):
-    """El contenido del PDF está vacío.
-
-    Equivalente a ``Exceptions\\PdfReader\\EmptyPdfContentException``.
-    """
+    """El contenido del PDF está vacío."""
 
 
 class RfcFromPdfNotFoundException(CsfScraperException):
-    """No se pudo obtener el RFC del PDF procesado.
-
-    Equivalente a ``Exceptions\\PdfReader\\RfcFromPdfNotFoundException``.
-    """
+    """No se pudo obtener el RFC del PDF procesado."""
 
 
 class PdfToTextConvertException(CsfScraperException):
-    """La ejecución de ``pdftotext`` falló.
-
-    Equivalente a ``Exceptions\\PdfReader\\PdfToTextConvertException``
-    (extiende ``RuntimeException`` en PHP).
-    """
+    """La ejecución de ``pdftotext`` falló."""
 
     def __init__(
         self,
