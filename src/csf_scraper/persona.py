@@ -6,6 +6,8 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from csf_scraper.date_parser import DateField
 from csf_scraper.regimen import Regimen
+from csf_scraper.value_objects.id_cif import IdCif
+from csf_scraper.value_objects.rfc import Rfc
 
 
 class Persona(BaseModel):
@@ -13,8 +15,8 @@ class Persona(BaseModel):
 
     model_config = ConfigDict(validate_assignment=True)
 
-    rfc: str = ""
-    id_cif: str = ""
+    rfc: Rfc | None = None
+    id_cif: IdCif | None = None
     fecha_inicio_operaciones: DateField = None
     situacion_contribuyente: str = ""
     fecha_ultimo_cambio_situacion: DateField = None
@@ -51,11 +53,11 @@ class Persona(BaseModel):
 
     def is_fisica(self) -> bool:
         """Indica si la persona es física (RFC de 13 caracteres)."""
-        return len(self.rfc) == 13
+        return self.rfc.is_fisica() if self.rfc is not None else False
 
     def is_moral(self) -> bool:
-        """Indica si la persona es moral (RFC distinto de 13 caracteres)."""
-        return not self.is_fisica()
+        """Indica si la persona es moral (RFC de 12 caracteres)."""
+        return self.rfc.is_moral() if self.rfc is not None else False
 
     def to_dict(self) -> dict[str, Any]:
         """Devuelve los datos como un diccionario plano (envoltura de :meth:`model_dump`)."""
