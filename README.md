@@ -10,7 +10,7 @@ su idCIF (SAT, Constancia de Situación Fiscal).
 - [`pdftotext`](https://poppler.freedesktop.org/) (paquete del sistema
   `poppler-utils`), necesario **solo** para leer la CSF desde un archivo PDF
   (`obtain_from_pdf_path`).
-- Dependencias: `httpx`, `beautifulsoup4`, `lxml`, `python-stdnum`, `pydantic`.
+- Dependencias: `httpx`, `beautifulsoup4`, `lxml`, `pydantic`.
 
 ## Instalación
 
@@ -27,12 +27,18 @@ from csf_scraper import Scraper
 
 scraper = Scraper.create()
 
-# RFC + idCIF directamente (el RFC se valida con python-stdnum)
+# RFC + idCIF directamente (se validan con los value objects Rfc e IdCif)
 person = scraper.obtain_from_rfc_and_cif("DIM8701081LA", "1904014102123")
 
 # También puedes obtener los datos directamente de un archivo local PDF
 # (requiere pdftotext / poppler-utils instalado)
 person = scraper.obtain_from_pdf_path("ruta/al/csf.pdf")
+
+# O de una CSF escaneada (JPEG/PNG), inyectando el motor de lectura de imágenes
+from csf_scraper.image_readers.adapters.gemini_image_reader import GeminiImageReader
+
+scraper = Scraper.create(image_reader=GeminiImageReader(api_key="…", model_name="…"))
+person = scraper.obtain_from_image_path("ruta/al/csf.png")
 
 # Acceso a los datos de la persona (moral o física) por atributos
 if person.is_fisica():
@@ -78,6 +84,9 @@ Salida de `person.to_dict()` para una persona moral (fechas como `datetime`):
 
 - `Persona` es la base de `PersonaFisica` y `PersonaMoral`; sus campos se
   exponen como atributos en `snake_case` (`rfc`, `id_cif`, `colonia`, …).
+- `rfc: Rfc | None` e `id_cif: IdCif | None` usan los value objects que validan
+  el formato tanto al construir como al asignar (pydantic normaliza las cadenas
+  automáticamente).
 - `is_fisica()` e `is_moral()` permiten distinguir el tipo de persona sin
   inspeccionar el RFC por fuera de la librería.
 - `Regimen` se construye con el texto del régimen y, opcionalmente, la fecha de
@@ -88,6 +97,51 @@ Salida de `person.to_dict()` para una persona moral (fechas como `datetime`):
   modelo. La correspondencia título → campo está en `Persona.field_titles`.
 - `to_dict()` es una envoltura de `model_dump()`; `model_dump_json()` serializa
   las fechas en ISO-8601.
+
+## Value objects
+
+| Value object | Regla                                                                                                                                     |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `Rfc`        | `3–4 letras` (incluye `Ñ` y `&`) + `6 dígitos` + `3 alfanuméricos`; normaliza espacios/mayúsculas. `is_fisica()` (13) / `is_moral()` (12) |
+| `IdCif`      | solo dígitos, longitud 8–13                                                                                                               |
+| `CsfImage`   | imagen JPEG o PNG validada por _magic bytes_; expone `as_bytes()`, `as_base64()` y `get_mime_type()`                                      |
+
+Los value objects son subclases de `str`, por lo que se comportan como cadenas,
+se serializan como texto plano y lanzan la excepción personalizada
+correspondiente si el formato no es válido:
+
+```python
+from csf_scraper import InvalidIdCifFormatException, InvalidRfcFormatException, Rfc
+
+rfc = Rfc("  dim8701081la  ")  # → "DIM8701081LA"
+rfc.is_moral()  # → True
+
+try:
+    Rfc("no-es-un-rfc")
+except InvalidRfcFormatException as exception:
+    print(exception)
+```
+
+## Lectura de CSF
+
+Ambas rutas de extracción (`obtain_from_pdf_path` y `obtain_from_image_path`)
+implementan el puerto `RfcCifExtractorPort` y devuelven el DTO `RfcCifData`, de
+modo que `Scraper` no conoce el detalle del motor de lectura:
+
+```mermaid
+flowchart LR
+    S[Scraper] -->|obtain_from_pdf_path| P[PdfCsfTextReader]
+    S -->|obtain_from_image_path| I[ImageReaderPort]
+    I -.-> G[GeminiImageReader]
+    I -.-> T[OCR: OpenCV + Tesseract]
+    P --> D[RfcCifData]
+    I --> D
+```
+
+Por omisión `Scraper` solo sabe leer PDFs; el lector de imágenes es **opcional**
+y se inyecta con `Scraper.create(image_reader=…)`. Si se invoca
+`obtain_from_image_path` sin un lector configurado se lanza
+`ImageReaderNotConfiguredException`.
 
 ## Excepciones
 
@@ -100,7 +154,15 @@ Todas heredan de `CsfScraperException`:
   contiene RFC / idCIF)
 - `EmptyPdfContentException` / `PdfToTextConvertException` (problemas con
   `pdftotext`)
-- La validación del RFC lanza `stdnum.exceptions.ValidationError`.
+- `RfcFromImageNotFoundException` / `CifFromImageNotFoundException` (la imagen
+  no contiene RFC / idCIF)
+- `ImageReaderNotConfiguredException` (se pidió leer una imagen sin inyectar un
+  lector)
+- `InvalidImageException` / `InvalidImageFormatException` (imagen vacía, ilegible
+  o con formato distinto de JPEG/PNG)
+- `ImageReadingException` (fallo del motor de lectura de imágenes)
+- `InvalidRfcFormatException` / `InvalidIdCifFormatException` (formato inválido
+  en los value objects `Rfc` / `IdCif`)
 
 ## Desarrollo
 

@@ -20,7 +20,6 @@ dependencies = [
     "httpx>=0.27",
     "lxml>=5.0",
     "pydantic>=2.7",
-    "python-stdnum>=2.1",
 ]
 
 [project.urls]
@@ -56,7 +55,3 @@ strict = true
 python_version = "3.11"
 mypy_path = "src"
 files = ["src"]
-
-[[tool.mypy.overrides]]
-module = ["stdnum.*"]
-ignore_missing_imports = true

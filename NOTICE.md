@@ -13,4 +13,4 @@ Este proyecto es un **port a Python** de la librería PHP
 Todo el código fuente de este port se deriva del proyecto original; la lógica de
 negocio, los nombres de dominio, los mensajes de las excepciones y los fixtures
 de pruebas provienen de `phpcfdi/csf-scraper` y fueron migrados a Python
-(httpx, BeautifulSoup4 + lxml, pydantic, python-stdnum, pytest, respx).
+(httpx, BeautifulSoup4 + lxml, pydantic, pytest, respx).
