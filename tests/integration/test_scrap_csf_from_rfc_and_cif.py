@@ -3,9 +3,13 @@ from datetime import datetime
 import httpx
 import pytest
 import respx
-from stdnum.exceptions import ValidationError
 
-from csf_scraper import CifDownloadException, CifNotFoundException, Scraper
+from csf_scraper import (
+    CifDownloadException,
+    CifNotFoundException,
+    InvalidRfcFormatException,
+    Scraper,
+)
 from tests.helpers import file_contents
 from tests.integration.helpers import VALIDADOR_URL_REGEX
 
@@ -215,5 +219,5 @@ def test_send_invalid_rfc() -> None:
     rfc = "bad-rfc"
     idcif = "1904014102123"
 
-    with pytest.raises(ValidationError):
+    with pytest.raises(InvalidRfcFormatException):
         csf_scrap.obtain_from_rfc_and_cif(rfc, idcif)
