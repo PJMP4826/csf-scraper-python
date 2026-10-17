@@ -1,3 +1,4 @@
+import asyncio
 import platform
 
 import pytest
@@ -17,4 +18,4 @@ def test_pdftotext_is_installed_default_path() -> None:
 def test_throw_exception_when_path_not_found() -> None:
     pdf_to_text = PdfToText("aaa")
     with pytest.raises(FileNotFoundError):
-        pdf_to_text.extract("path")
+        asyncio.run(pdf_to_text.extract("path"))
