@@ -1,4 +1,4 @@
-"""Extracción del RFC y el idCIF a partir del texto de una CSF."""
+"""Análisis del texto de una CSF para obtener su RFC y su idCIF."""
 
 from csf_scraper.exceptions.pdf_reader import (
     CifFromPdfNotFoundException,
@@ -10,8 +10,14 @@ from csf_scraper.value_objects.id_cif import IdCif
 from csf_scraper.value_objects.rfc import Rfc
 
 
-class PdfCsfTextReader:
-    """Obtiene el RFC y el idCIF de las líneas de texto de una CSF (salida de ``pdftotext``)."""
+class PdfCsfTextParser:
+    """Obtiene el RFC y el idCIF de las líneas de texto de una CSF.
+
+    Es la pieza de *parsing* pura: recibe el texto (salida de ``pdftotext``) y
+    no conoce el origen ni el binario. :class:`~csf_scraper.pdf_reader.CsfPdfExtractor`
+    lo combina con un proveedor de texto para implementar
+    :class:`~csf_scraper.ports.RfcCifExtractorPort`.
+    """
 
     def __init__(self, contents: str) -> None:
         if not contents:
