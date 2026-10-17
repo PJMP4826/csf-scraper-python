@@ -1,5 +1,6 @@
 """Pruebas de obtención de datos a partir de un archivo CSF en PDF."""
 
+import asyncio
 import platform
 from datetime import datetime
 
@@ -20,7 +21,7 @@ def prepare_scraper(html_response: str) -> Scraper:
     respx.get(url__regex=VALIDADOR_URL_REGEX).mock(
         return_value=httpx.Response(200, text=file_contents(html_response)),
     )
-    return ScraperHelper(httpx.Client(follow_redirects=True, timeout=None))
+    return ScraperHelper(httpx.AsyncClient(follow_redirects=True, timeout=None))
 
 
 def d(value: str) -> datetime:
@@ -59,7 +60,7 @@ def test_scrap_from_idcif_and_rfc_by_moral() -> None:
         "extra_data": {"localidad": ""},
     }
 
-    data = csf_scrap.obtain_from_pdf_path("my-path").to_dict()
+    data = asyncio.run(csf_scrap.obtain_from_pdf_path("my-path")).to_dict()
 
     assert data == expected_data
 
@@ -76,7 +77,9 @@ def test_obtain_from_pdf_with_invalid_url() -> None:
         csf_scrap = Scraper.create()
 
         with pytest.raises(CifDownloadException):
-            csf_scrap.obtain_from_pdf_path(str(file_path("csf-correct-but-invalid.pdf")))
+            asyncio.run(
+                csf_scrap.obtain_from_pdf_path(str(file_path("csf-correct-but-invalid.pdf")))
+            )
     finally:
         Scraper.url = previous_url
 
@@ -89,7 +92,7 @@ def test_obtain_from_pdf_with_invalid_data() -> None:
     csf_scrap = Scraper.create()
 
     with pytest.raises(CifNotFoundException):
-        csf_scrap.obtain_from_pdf_path(str(file_path("csf-correct-but-invalid.pdf")))
+        asyncio.run(csf_scrap.obtain_from_pdf_path(str(file_path("csf-correct-but-invalid.pdf"))))
 
 
 @pytest.mark.skipif(
@@ -101,7 +104,7 @@ def test_obtain_from_pdf_without_rfc() -> None:
     csf_scrap = Scraper.create()
 
     with pytest.raises(RfcFromPdfNotFoundException):
-        csf_scrap.obtain_from_pdf_path(str(file_path("csf-without-rfc.pdf")))
+        asyncio.run(csf_scrap.obtain_from_pdf_path(str(file_path("csf-without-rfc.pdf"))))
 
 
 @pytest.mark.skipif(
@@ -113,4 +116,4 @@ def test_obtain_from_pdf_without_cif() -> None:
     csf_scrap = Scraper.create()
 
     with pytest.raises(CifFromPdfNotFoundException):
-        csf_scrap.obtain_from_pdf_path(str(file_path("csf-without-cif.pdf")))
+        asyncio.run(csf_scrap.obtain_from_pdf_path(str(file_path("csf-without-cif.pdf"))))

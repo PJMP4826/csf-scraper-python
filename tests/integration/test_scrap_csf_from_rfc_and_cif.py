@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime
 
 import httpx
@@ -18,7 +19,7 @@ def prepare_scraper(html_response: str) -> Scraper:
     respx.get(url__regex=VALIDADOR_URL_REGEX).mock(
         return_value=httpx.Response(200, text=file_contents(html_response)),
     )
-    return Scraper(httpx.Client(follow_redirects=True, timeout=None))
+    return Scraper(httpx.AsyncClient(follow_redirects=True, timeout=None))
 
 
 def d(value: str) -> datetime:
@@ -59,7 +60,7 @@ def test_scrap_from_idcif_and_rfc_by_moral() -> None:
         "extra_data": {"localidad": ""},
     }
 
-    data = csf_scrap.obtain_from_rfc_and_cif(rfc, idcif).to_dict()
+    data = asyncio.run(csf_scrap.obtain_from_rfc_and_cif(rfc, idcif)).to_dict()
 
     assert data == expected_data
 
@@ -100,7 +101,7 @@ def test_scrap_from_idcif_and_rfc_by_fisica() -> None:
         "extra_data": {"localidad": ""},
     }
 
-    data = csf_scrap.obtain_from_rfc_and_cif(rfc, idcif).to_dict()
+    data = asyncio.run(csf_scrap.obtain_from_rfc_and_cif(rfc, idcif)).to_dict()
 
     assert data == expected_data
 
@@ -146,7 +147,7 @@ def test_scrap_from_idcif_and_rfc_multiple_regimen() -> None:
         "extra_data": {"localidad": ""},
     }
 
-    data = csf_scrap.obtain_from_rfc_and_cif(rfc, idcif).to_dict()
+    data = asyncio.run(csf_scrap.obtain_from_rfc_and_cif(rfc, idcif)).to_dict()
 
     assert data == expected_data
 
@@ -185,7 +186,7 @@ def test_scrap_from_idcif_and_rfc_localidad_instead_of_colonia() -> None:
         "extra_data": {"localidad": "30210010"},
     }
 
-    data = csf_scrap.obtain_from_rfc_and_cif(rfc, idcif).to_dict()
+    data = asyncio.run(csf_scrap.obtain_from_rfc_and_cif(rfc, idcif)).to_dict()
 
     assert data == expected_data
 
@@ -197,7 +198,7 @@ def test_return_empty_when_not_found() -> None:
     idcif = "1904014102123"
 
     with pytest.raises(CifNotFoundException):
-        csf_scrap.obtain_from_rfc_and_cif(rfc, idcif)
+        asyncio.run(csf_scrap.obtain_from_rfc_and_cif(rfc, idcif))
 
 
 @respx.mock
@@ -205,12 +206,12 @@ def test_throw_exception_on_download_error() -> None:
     respx.get(url__regex=VALIDADOR_URL_REGEX).mock(
         side_effect=httpx.ConnectError("Connection refused"),
     )
-    csf_scrap = Scraper(httpx.Client(follow_redirects=True, timeout=None))
+    csf_scrap = Scraper(httpx.AsyncClient(follow_redirects=True, timeout=None))
     rfc = "COSC8001137NA"
     idcif = "1904014102123"
 
     with pytest.raises(CifDownloadException):
-        csf_scrap.obtain_from_rfc_and_cif(rfc, idcif)
+        asyncio.run(csf_scrap.obtain_from_rfc_and_cif(rfc, idcif))
 
 
 @respx.mock(assert_all_called=False)
@@ -220,4 +221,4 @@ def test_send_invalid_rfc() -> None:
     idcif = "1904014102123"
 
     with pytest.raises(InvalidRfcFormatException):
-        csf_scrap.obtain_from_rfc_and_cif(rfc, idcif)
+        asyncio.run(csf_scrap.obtain_from_rfc_and_cif(rfc, idcif))
