@@ -36,9 +36,7 @@ class CsfImage:
         try:
             contents = Path(path).read_bytes()
         except OSError as exception:
-            raise InvalidImageException(
-                f"Cannot read image from path: {path}"
-            ) from exception
+            raise InvalidImageException(f"Cannot read image from path: {path}") from exception
         return cls.new_from_contents(contents)
 
     @classmethod
