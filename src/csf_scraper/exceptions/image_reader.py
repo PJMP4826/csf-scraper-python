@@ -11,18 +11,33 @@ class InvalidImageFormatException(CsfScraperException):
     """El archivo recibido no es una imagen soportada (JPEG o PNG)."""
 
 
-class ImageReaderNotConfiguredException(CsfScraperException):
-    """No se inyectó un motor de lectura de imágenes (LLM/OCR)."""
+class ImageExtractorNotConfiguredException(CsfScraperException):
+    """No se inyectó un extractor de imágenes (motor LLM/OCR)."""
 
     def __init__(self) -> None:
         super().__init__(
-            "An image reader is required to obtain the data from an image; "
-            "inject one via Scraper(..., image_reader=...).",
+            "An image extractor is required to obtain the data from an image; "
+            "inject one via Scraper(..., image_extractor=...).",
         )
 
 
 class ImageReadingException(CsfScraperException):
-    """El motor de lectura de imágenes (LLM/OCR) falló al procesar la CSF."""
+    """El motor de lectura de imágenes (LLM/OCR) falló al procesar la CSF.
+
+    ``provider`` y ``model`` identifican el motor que falló, de modo que un
+    adaptador pueda reportar el origen del error sin exponer credenciales.
+    """
+
+    def __init__(
+        self,
+        message: str = "The image reader failed to process the CSF.",
+        *,
+        provider: str | None = None,
+        model: str | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.provider = provider
+        self.model = model
 
 
 class RfcFromImageNotFoundException(CsfScraperException):

@@ -1,19 +1,34 @@
 """Puerto que abstrae el motor de lectura de imágenes (LLM multimodal u OCR)."""
 
-from typing import Protocol
+from abc import ABC, abstractmethod
 
 from csf_scraper.rfc_cif_data import RfcCifData
 from csf_scraper.value_objects.csf_image import CsfImage
 
 
-class ImageReaderPort(Protocol):
-    """Extrae el :class:`RfcCifData` de la imagen de una CSF.
+class ImageReaderPort(ABC):
+    """Extrae el :class:`RfcCifData` de la imagen ya materializada de una CSF.
 
-    Implementaciones posibles: un LLM multimodal (p. ej. Gemini) o un pipeline
-    de OCR (OpenCV + Tesseract). El motor concreto es inyectado en
-    :class:`~csf_scraper.scraper.Scraper`.
+    Este es el contrato de un **motor**, no de un origen: recibe una
+    :class:`~csf_scraper.value_objects.CsfImage` en memoria y nunca toca el
+    disco. Para leer desde una ruta se usa
+    :class:`~csf_scraper.image_readers.CsfImageExtractor`, que adapta este
+    puerto al contrato público
+    :class:`~csf_scraper.ports.RfcCifExtractorPort`.
+
+    Reglas del contrato:
+
+    - No lee archivos: toda la validación de formato la hace :class:`CsfImage`.
+    - Devuelve :class:`RfcCifData` con los value objects ya construidos.
+    - Los fallos se reportan con excepciones de la librería; en particular
+      :class:`~csf_scraper.exceptions.image_reader.ImageReadingException`.
+
+    Implementaciones posibles:
+    :class:`~csf_scraper.image_readers.LlmImageReaderService`
+    (Gemini, OpenAI, DeepSeek, …) o un pipeline de OCR (OpenCV + Tesseract).
     """
 
-    def read(self, image: CsfImage) -> RfcCifData:
+    @abstractmethod
+    async def read(self, image: CsfImage) -> RfcCifData:
         """Devuelve el RFC y el idCIF leídos de ``image``."""
         ...
