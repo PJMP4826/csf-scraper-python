@@ -52,3 +52,9 @@ def test_exception_is_a_library_exception() -> None:
 
 def test_ensure_validates_and_returns_value_object() -> None:
     assert isinstance(Rfc.ensure("cosc8001137na"), Rfc)
+
+
+def test_value_returns_plain_string() -> None:
+    value = Rfc(VALID_MORAL).value
+    assert value == VALID_MORAL
+    assert type(value) is str

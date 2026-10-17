@@ -34,6 +34,11 @@ class Rfc(str):
         """Convierte ``value`` a :class:`Rfc` validando (y normalizando) su formato."""
         return cls(value)
 
+    @property
+    def value(self) -> str:
+        """RFC como ``str`` plano (sin la subclase :class:`Rfc`)."""
+        return str(self)
+
     def is_fisica(self) -> bool:
         """Indica si el RFC corresponde a una persona física (13 caracteres)."""
         return len(self) == 13

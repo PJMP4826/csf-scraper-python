@@ -34,6 +34,11 @@ class IdCif(str):
         """Convierte ``value`` a :class:`IdCif` validando su formato."""
         return cls(value)
 
+    @property
+    def value(self) -> str:
+        """idCIF como ``str`` plano (sin la subclase :class:`IdCif`)."""
+        return str(self)
+
     @classmethod
     def __get_pydantic_core_schema__(cls, source: Any, handler: Any) -> CoreSchema:
         return core_schema.no_info_after_validator_function(

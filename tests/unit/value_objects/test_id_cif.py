@@ -34,3 +34,9 @@ def test_exception_is_a_library_exception() -> None:
 
 def test_ensure_validates_and_returns_value_object() -> None:
     assert isinstance(IdCif.ensure("25020218873"), IdCif)
+
+
+def test_value_returns_plain_string() -> None:
+    value = IdCif("1904014102123").value
+    assert value == "1904014102123"
+    assert type(value) is str
