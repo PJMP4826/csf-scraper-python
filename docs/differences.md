@@ -37,34 +37,66 @@ cadenas, se comparan y serializan como texto plano y no necesitan
 ### 1.2 Estrategias de extracción
 
 Se introduce un patrón _strategy_ con puertos (`typing.Protocol`) y un DTO
-compartido, de modo que `Scraper` no conoce el detalle del motor de lectura:
+compartido, separando dos responsabilidades que suelen confundirse:
 
-| Puerto                | Implementación                                        | Devuelve                              |
-| --------------------- | ----------------------------------------------------- | ------------------------------------- |
-| `RfcCifExtractorPort` | `PdfCsfTextReader` (texto de `pdftotext`)             | `RfcCifData(rfc: Rfc, id_cif: IdCif)` |
-| `ImageReaderPort`     | _(a definir por el usuario)_ `GeminiImageReader`, OCR | `RfcCifData`                          |
+- **Origen** (contrato público de `Scraper`): `RfcCifExtractorPort`, que recibe
+  una **ruta** de archivo.
+- **Motor** (cómo se lee una imagen ya cargada): `ImageReaderPort`, que recibe
+  una `CsfImage` en memoria.
 
-`Scraper.__init__` acepta `image_reader: ImageReaderPort | None = None`; el modo
-por omisión sigue siendo únicamente PDF. Sin lector inyectado,
-`obtain_from_image_path` lanza `ImageReaderNotConfiguredException`.
+| Puerto                | Implementación                                                | Firma                                       |
+| --------------------- | ------------------------------------------------------------- | ------------------------------------------- |
+| `RfcCifExtractorPort` | `CsfPdfExtractor` (texto de `pdftotext` + `PdfCsfTextParser`) | `async extract(path: str) -> RfcCifData`    |
+| `RfcCifExtractorPort` | `CsfImageExtractor` (puente ruta → motor)                     | `async extract(path: str) -> RfcCifData`    |
+| `ImageReaderPort`     | _(a definir por el usuario)_ `LlmImageReaderService`, OCR     | `async read(image: CsfImage) -> RfcCifData` |
 
-> `CsfExtractor` se renombra a `PdfCsfTextReader` porque su responsabilidad
+Decisiones asociadas:
+
+- La ruta viaja **en el método** (`extract(path)`), no en el constructor: los
+  extractores son sin estado y reutilizables; el constructor queda reservado
+  para la configuración del motor (API key, modelo, binario alternativo…).
+- `CsfImageExtractor` adapta cualquier `ImageReaderPort` al contrato de ruta,
+  de modo que OCR y LLM comparten la misma firma pública y `Scraper` nunca
+  distingue motores.
+
+Los adaptadores basados en LLM (Gemini, DeepSeek…) no implementan
+`ImageReaderPort` directamente: heredan de la clase abstracta
+`LlmImageReaderService`, que aplica el método plantilla `read()` y deja al
+adaptador solo `_run_program(image_documents, prompt) -> RfcCifSchema`. Así
+todos comparten el prompt (`CSF_PROMPT`), el armado del `ImageBlock`, los
+reintentos, la validación con los value objects y el mapeo del esquema tipado a
+`RfcCifData`.
+
+La respuesta del modelo se modela con `RfcCifSchema`, un `BaseModel` cuyos
+`Field` llevan `description` para que el modelo multimodal sepa qué aspecto
+tienen el RFC y el idCIF en la Constancia de Situación Fiscal. Pydantic valida
+la forma; los value objects validan el formato de negocio, y sus excepciones son
+las que disparan los reintentos (`MAX_RETRIES = 3`). Los fallos de transporte se
+envuelven en `ImageReadingException` sin reintentarse.
+
+`Scraper.__init__` acepta `pdf_extractor` e `image_extractor`, ambos
+`RfcCifExtractorPort`; el modo por omisión sigue siendo únicamente PDF. Sin
+`image_extractor`, `obtain_from_image_path` lanza
+`ImageExtractorNotConfiguredException`.
+
+> `CsfExtractor` se renombra a `CsfPdfExtractor` porque su responsabilidad
 > real es extraer texto de PDF; el nuevo nombre deja espacio al extractor de
-> imágenes.
+> imágenes. El parseo del texto se separó a `PdfCsfTextParser` para poder
+> probarlo sin tocar el sistema de archivos.
 
 ## 2. Excepciones
 
-| PHP                                                                                                                                | Python                                                                                                                                                                                                                |
-| ---------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `interface CsfScraperException extends Throwable`                                                                                  | clase base `CsfScraperException(Exception)`                                                                                                                                                                           |
-| `CifDownloadException extends RuntimeException`                                                                                    | `CifDownloadException` (hereda de `CsfScraperException`)                                                                                                                                                              |
-| `PdfToTextConvertException extends RuntimeException`                                                                               | `PdfToTextConvertException`                                                                                                                                                                                           |
-| `CifNotFoundException`, `CifFromPdfNotFoundException`, `EmptyPdfContentException`, `RfcFromPdfNotFoundException extends Exception` | mismos nombres, heredando de `CsfScraperException`                                                                                                                                                                    |
-| `$exception->getPrevious()`                                                                                                        | atributo `previous` **y** encadenamiento `raise ... from` (`__cause__`)                                                                                                                                               |
-| `RuntimeException` de Symfony `Process` (binario `pdftotext` inexistente)                                                          | `FileNotFoundError` de la stdlib (lanzado por `subprocess.run`)                                                                                                                                                       |
-| `InvalidExpressionToParseException` (`phpcfdi/rfc`)                                                                                | `InvalidRfcFormatException` (value object `Rfc`)                                                                                                                                                                      |
-| — (no existe)                                                                                                                      | `InvalidIdCifFormatException`, `InvalidImageException`, `InvalidImageFormatException`, `ImageReaderNotConfiguredException`, `ImageReadingException`, `RfcFromImageNotFoundException`, `CifFromImageNotFoundException` |
-| `CifDownloadException` captura 4xx/5xx (`http_errors` de Guzzle)                                                                   | `response.raise_for_status()` dentro del `try` → `httpx.HTTPStatusError` → `CifDownloadException`                                                                                                                     |
+| PHP                                                                                                                                | Python                                                                                                                                                                                                                   |
+| ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `interface CsfScraperException extends Throwable`                                                                                  | clase base `CsfScraperException(Exception)`                                                                                                                                                                              |
+| `CifDownloadException extends RuntimeException`                                                                                    | `CifDownloadException` (hereda de `CsfScraperException`)                                                                                                                                                                 |
+| `PdfToTextConvertException extends RuntimeException`                                                                               | `PdfToTextConvertException`                                                                                                                                                                                              |
+| `CifNotFoundException`, `CifFromPdfNotFoundException`, `EmptyPdfContentException`, `RfcFromPdfNotFoundException extends Exception` | mismos nombres, heredando de `CsfScraperException`                                                                                                                                                                       |
+| `$exception->getPrevious()`                                                                                                        | atributo `previous` **y** encadenamiento `raise ... from` (`__cause__`)                                                                                                                                                  |
+| `RuntimeException` de Symfony `Process` (binario `pdftotext` inexistente)                                                          | `FileNotFoundError` de la stdlib (lanzado por `subprocess.run`)                                                                                                                                                          |
+| `InvalidExpressionToParseException` (`phpcfdi/rfc`)                                                                                | `InvalidRfcFormatException` (value object `Rfc`)                                                                                                                                                                         |
+| — (no existe)                                                                                                                      | `InvalidIdCifFormatException`, `InvalidImageException`, `InvalidImageFormatException`, `ImageExtractorNotConfiguredException`, `ImageReadingException`, `RfcFromImageNotFoundException`, `CifFromImageNotFoundException` |
+| `CifDownloadException` captura 4xx/5xx (`http_errors` de Guzzle)                                                                   | `response.raise_for_status()` dentro del `try` → `httpx.HTTPStatusError` → `CifDownloadException`                                                                                                                        |
 
 Todos los códigos/atributos originales se conservan: `CifDownloadException` mantiene
 `url` y `previous`; `PdfToTextConvertException` mantiene `command`, `exit_code`,
@@ -112,7 +144,7 @@ Todos los códigos/atributos originales se conservan: `CifDownloadException` man
    `@pytest.mark.skipif(platform.system() != "Linux")`.
 6. El original no tiene tests unitarios de `DataExtractor` (sus tests son los de
    integración); la portación no añade tests nuevos para no alterar el recuento
-   de 90 casos.
+   de casos.
 7. `tests/TestCase.php` (lectura de fixtures) se implementa como funciones en
    `tests/helpers.py`; el trait `PersonaTrait` como módulo cuyas funciones se
    importan en cada módulo de test.

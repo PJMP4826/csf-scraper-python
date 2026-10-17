@@ -22,41 +22,68 @@ pip install .
 
 ## Ejemplo de uso
 
+Todo el flujo es asíncrono: `Scraper` envuelve un `httpx.AsyncClient` y todos
+los métodos de lectura son corrutinas, así que se consumen con `await`.
+
 ```python
+import asyncio
+
 from csf_scraper import Scraper
 
-scraper = Scraper.create()
 
-# RFC + idCIF directamente (se validan con los value objects Rfc e IdCif)
-person = scraper.obtain_from_rfc_and_cif("DIM8701081LA", "1904014102123")
+async def main() -> None:
+    # El scraper es un context manager asíncrono: cierra el AsyncClient al salir
+    async with Scraper.create() as scraper:
+        # RFC + idCIF directamente (se validan con los value objects Rfc e IdCif)
+        person = await scraper.obtain_from_rfc_and_cif("DIM8701081LA", "1904014102123")
 
-# También puedes obtener los datos directamente de un archivo local PDF
-# (requiere pdftotext / poppler-utils instalado)
-person = scraper.obtain_from_pdf_path("ruta/al/csf.pdf")
+        # También puedes obtener los datos directamente de un archivo local PDF
+        # (requiere pdftotext / poppler-utils instalado)
+        person = await scraper.obtain_from_pdf_path("ruta/al/csf.pdf")
 
-# O de una CSF escaneada (JPEG/PNG), inyectando el motor de lectura de imágenes
+    # Acceso a los datos de la persona (moral o física) por atributos
+    if person.is_fisica():
+        print(person.nombre)
+    elif person.is_moral():
+        print(person.razon_social)
+
+    # Regímenes: lista de Regimen, cada uno con su id ya calculado
+    for regimen in person.regimenes:
+        print(regimen.regimen, regimen.regimen_id, regimen.fecha_alta)
+
+    # Los títulos del HTML que no tienen un campo propio se guardan aquí
+    print(person.extra_data)
+
+    # Diccionario de datos (envoltura de model_dump) o JSON (ISO-8601 en fechas)
+    data = person.to_dict()
+    json_text = person.model_dump_json()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+Para leer una CSF escaneada (JPEG/PNG) se inyecta el motor de lectura de imágenes:
+
+```python
+import asyncio
+
+from csf_scraper import CsfImageExtractor, Scraper
 from csf_scraper.image_readers.adapters.gemini_image_reader import GeminiImageReader
 
-scraper = Scraper.create(image_reader=GeminiImageReader(api_key="…", model_name="…"))
-person = scraper.obtain_from_image_path("ruta/al/csf.png")
 
-# Acceso a los datos de la persona (moral o física) por atributos
-if person.is_fisica():
-    print(person.nombre)
-elif person.is_moral():
-    print(person.razon_social)
+async def main() -> None:
+    reader = GeminiImageReader(api_key="…", model_name="…")
+    async with Scraper.create(image_extractor=CsfImageExtractor(reader)) as scraper:
+        person = await scraper.obtain_from_image_path("ruta/al/csf.png")
+    print(person.to_dict())
 
-# Regímenes: lista de Regimen, cada uno con su id ya calculado
-for regimen in person.regimenes:
-    print(regimen.regimen, regimen.regimen_id, regimen.fecha_alta)
 
-# Los títulos del HTML que no tienen un campo propio se guardan aquí
-print(person.extra_data)
-
-# Diccionario de datos (envoltura de model_dump) o JSON (ISO-8601 en fechas)
-data = person.to_dict()
-json_text = person.model_dump_json()
+if __name__ == "__main__":
+    asyncio.run(main())
 ```
+
+````
 
 Salida de `person.to_dict()` para una persona moral (fechas como `datetime`):
 
@@ -78,7 +105,7 @@ Salida de `person.to_dict()` para una persona moral (fechas como `datetime`):
     "regimen_de_capital": "SA DE CV",
     "fecha_constitucion": datetime(2019, 2, 21),
 }
-```
+````
 
 ## Modelos
 
@@ -124,24 +151,144 @@ except InvalidRfcFormatException as exception:
 
 ## Lectura de CSF
 
-Ambas rutas de extracción (`obtain_from_pdf_path` y `obtain_from_image_path`)
-implementan el puerto `RfcCifExtractorPort` y devuelven el DTO `RfcCifData`, de
-modo que `Scraper` no conoce el detalle del motor de lectura:
+La librería separa dos responsabilidades que es fácil confundir:
+
+- **Origen**: de dónde salen los datos (una ruta de archivo). Contrato público
+  `RfcCifExtractorPort.extract(path) -> RfcCifData`.
+- **Motor**: cómo se lee una imagen ya cargada en memoria. Contrato
+  `ImageReaderPort.read(image) -> RfcCifData`.
+
+`Scraper` solo habla con `RfcCifExtractorPort`, de modo que no distingue un PDF
+(`CsfPdfExtractor`) de una imagen: cualquier extractor que cumpla el contrato
+sirve para ambas rutas.
 
 ```mermaid
 flowchart LR
-    S[Scraper] -->|obtain_from_pdf_path| P[PdfCsfTextReader]
-    S -->|obtain_from_image_path| I[ImageReaderPort]
-    I -.-> G[GeminiImageReader]
-    I -.-> T[OCR: OpenCV + Tesseract]
-    P --> D[RfcCifData]
-    I --> D
+    S[Scraper] -->|obtain_from_pdf_path| P[CsfPdfExtractor]
+    S -->|obtain_from_image_path| B[CsfImageExtractor]
+    B -->|ImageReaderPort| L[LlmImageReaderService]
+    L -.-> G[GeminiImageReader]
+    B -.-> T[OCR: OpenCV + Tesseract]
+    P --> R[RfcCifData]
+    B --> R
 ```
 
-Por omisión `Scraper` solo sabe leer PDFs; el lector de imágenes es **opcional**
-y se inyecta con `Scraper.create(image_reader=…)`. Si se invoca
-`obtain_from_image_path` sin un lector configurado se lanza
-`ImageReaderNotConfiguredException`.
+### Contrato de los extractores (`RfcCifExtractorPort`)
+
+```python
+class RfcCifExtractorPort(ABC):
+    @abstractmethod
+    async def extract(self, path: str) -> RfcCifData: ...
+```
+
+- El contrato es **asíncrono**: `extract` es una corrutina para que cada
+  implementación pueda delegar E/S (procesos externos, disco) sin bloquear el
+  bucle de eventos; `Scraper` la consume con `await`.
+- La ruta viaja **en el método**, no en el constructor: los extractores son
+  sin estado y reutilizables entre archivos.
+- El constructor queda reservado para configuración del motor (API key, modelo,
+  binario alternativo…).
+- Devuelve siempre `RfcCifData` con `rfc: Rfc` e `id_cif: IdCif` ya validados.
+- Solo propaga excepciones de la librería (`CsfScraperException`).
+
+Implementaciones: `CsfPdfExtractor` (texto de `pdftotext` + `PdfCsfTextParser`)
+y `CsfImageExtractor` (puente entre una ruta y cualquier `ImageReaderPort`).
+
+### Contrato de los motores de imagen (`ImageReaderPort`)
+
+```python
+class ImageReaderPort(ABC):
+    @abstractmethod
+    async def read(self, image: CsfImage) -> RfcCifData: ...
+```
+
+- Recibe una imagen **en memoria**; nunca abre archivos ni conoce rutas.
+- La validación de formato (JPEG/PNG) ocurre al construir `CsfImage`, así que el
+  motor puede asumir que la imagen es válida.
+
+### Sub-contrato de los adaptadores basados en LLM
+
+Los adaptadores de Gemini, DeepSeek, etc. no implementan `ImageReaderPort`
+directamente: heredan de `LlmImageReaderService`, que aporta el comportamiento
+común y deja al adaptador **solo la llamada al proveedor**.
+
+```python
+class LlmImageReaderService(ABC):
+    prompt: ClassVar[str] = CSF_PROMPT
+    provider: str  # propiedad abstracta
+    model: str
+
+    async def read(self, image: CsfImage) -> RfcCifData:  # plantilla (final)
+        ...
+
+    @abstractmethod
+    async def _run_program(
+        self, image_documents: Sequence[ImageBlock], prompt: str
+    ) -> RfcCifSchema: ...
+```
+
+`LlmImageReaderService` solo tiene cuatro responsabilidades:
+
+1. **Armado del prompt**: `CSF_PROMPT` más la realimentación del intento previo.
+2. **Armado del mensaje con la imagen**: un único `ImageBlock` con los bytes y
+   el MIME type de la `CsfImage`.
+3. **Reintentos**: cuando `Rfc` o `IdCif` rechazan el formato de negocio, se
+   vuelve a interrogar al modelo pasándole el error como contexto (hasta
+   `max_retries`, por omisión `MAX_RETRIES = 3`). Los fallos de transporte _no_
+   se reintentan: se envuelven en `ImageReadingException`.
+4. **Parseo al DTO**: un `RfcCifSchema` ya tipado se mapea a `RfcCifData`.
+
+| Responsabilidad         | Dónde vive                                                 |
+| ----------------------- | ---------------------------------------------------------- |
+| Prompt canónico         | constante `CSF_PROMPT` (+ `RETRY_PROMPT`)                  |
+| Lectura del archivo     | `CsfImage.new_from_path`, invocado por `CsfImageExtractor` |
+| Forma de la respuesta   | `RfcCifSchema` (`Field` con `description` para el modelo)  |
+| Transporte al proveedor | el adaptador concreto, en `_run_program`                   |
+| Validación de RFC/idCIF | value objects `Rfc` / `IdCif`                              |
+| Mapeo de errores        | `ImageReadingException` y derivadas                        |
+
+Nota: la imagen se lee con `asyncio.to_thread` dentro de `CsfImageExtractor`,
+porque la lectura de disco es bloqueante; el resto del flujo (LLM, HTTP,
+`pdftotext`) usa directamente APIs asíncronas.
+
+`RfcCifSchema` es un `BaseModel` cuyos `Field` llevan `description`; esos textos
+son los que el modelo multimodal usa para saber qué aspecto tienen el RFC y el
+idCIF impresos en la Constancia de Situación Fiscal. Pydantic valida la _forma_
+(campos presentes y de tipo `str`) y los value objects validan el _formato de
+negocio_, que es justo lo que dispara los reintentos.
+
+Al adaptador se le inyecta el cliente de su proveedor y ejecuta su propio
+`MultiModalLLMCompletionProgram`:
+
+```python
+class GeminiImageReader(LlmImageReaderService, ImageReaderPort):
+    def __init__(self, api_key: str, model_name: str, *, max_retries: int = MAX_RETRIES) -> None:
+        super().__init__(model=model_name, max_retries=max_retries)
+        self._llm_provider = GoogleGenAI(api_key=api_key, model=model_name)
+
+    @property
+    def provider(self) -> str:
+        return "gemini"
+
+    async def _run_program(
+        self, image_documents: Sequence[ImageBlock], prompt: str
+    ) -> RfcCifSchema:
+        program = MultiModalLLMCompletionProgram.from_defaults(
+            output_cls=RfcCifSchema,
+            image_documents=list(image_documents),
+            prompt_template_str=prompt,
+            multi_modal_llm=self._llm_provider,
+        )
+        return cast(RfcCifSchema, await program.acall())
+```
+
+El extra `llm-gemini` instala `llama-index-llms-google-genai`; el resto de la
+librería no depende de ningún proveedor.
+
+Por omisión `Scraper` solo sabe leer PDFs; el extractor de imágenes es
+**opcional** y se inyecta con `Scraper.create(image_extractor=…)`. Si se invoca
+`obtain_from_image_path` sin extractor configurado se lanza
+`ImageExtractorNotConfiguredException`.
 
 ## Excepciones
 
@@ -156,11 +303,12 @@ Todas heredan de `CsfScraperException`:
   `pdftotext`)
 - `RfcFromImageNotFoundException` / `CifFromImageNotFoundException` (la imagen
   no contiene RFC / idCIF)
-- `ImageReaderNotConfiguredException` (se pidió leer una imagen sin inyectar un
-  lector)
+- `ImageExtractorNotConfiguredException` (se pidió leer una imagen sin inyectar
+  un extractor)
 - `InvalidImageException` / `InvalidImageFormatException` (imagen vacía, ilegible
   o con formato distinto de JPEG/PNG)
-- `ImageReadingException` (fallo del motor de lectura de imágenes)
+- `ImageReadingException` (fallo del motor de lectura de imágenes; conserva
+  `provider` y `model`)
 - `InvalidRfcFormatException` / `InvalidIdCifFormatException` (formato inválido
   en los value objects `Rfc` / `IdCif`)
 
