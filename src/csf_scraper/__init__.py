@@ -8,7 +8,7 @@ from csf_scraper.exceptions import (
 )
 from csf_scraper.exceptions.image_reader import (
     CifFromImageNotFoundException,
-    ImageReaderNotConfiguredException,
+    ImageExtractorNotConfiguredException,
     ImageReadingException,
     InvalidImageException,
     InvalidImageFormatException,
@@ -24,34 +24,52 @@ from csf_scraper.exceptions.value_objects import (
     InvalidIdCifFormatException,
     InvalidRfcFormatException,
 )
-from csf_scraper.image_readers.ports.image_reader_port import ImageReaderPort
-from csf_scraper.pdf_reader import PdfCsfTextReader
+from csf_scraper.image_readers import (
+    CSF_PROMPT,
+    MAX_RETRIES,
+    RETRY_PROMPT,
+    CsfImageExtractor,
+    GeminiImageReader,
+    ImageReaderPort,
+    LlmImageReaderService,
+    RfcCifSchema,
+)
+from csf_scraper.pdf_reader import CsfPdfExtractor, PdfCsfTextParser, PdfTextProvider
 from csf_scraper.persona import Persona
 from csf_scraper.persona_fisica import PersonaFisica
 from csf_scraper.persona_moral import PersonaMoral
+from csf_scraper.ports import RfcCifExtractorPort
 from csf_scraper.regimen import Regimen
 from csf_scraper.rfc_cif_data import RfcCifData
 from csf_scraper.scraper import Scraper
 from csf_scraper.value_objects import CsfImage, IdCif, Rfc
 
 __all__ = [
+    "CSF_PROMPT",
+    "MAX_RETRIES",
+    "RETRY_PROMPT",
     "CifDownloadException",
     "CifFromImageNotFoundException",
     "CifFromPdfNotFoundException",
     "CifNotFoundException",
     "CsfImage",
+    "CsfImageExtractor",
+    "CsfPdfExtractor",
     "CsfScraperException",
     "DataExtractor",
     "EmptyPdfContentException",
+    "GeminiImageReader",
     "IdCif",
-    "ImageReaderNotConfiguredException",
+    "ImageExtractorNotConfiguredException",
     "ImageReaderPort",
     "ImageReadingException",
     "InvalidIdCifFormatException",
     "InvalidImageException",
     "InvalidImageFormatException",
     "InvalidRfcFormatException",
-    "PdfCsfTextReader",
+    "LlmImageReaderService",
+    "PdfCsfTextParser",
+    "PdfTextProvider",
     "PdfToTextConvertException",
     "Persona",
     "PersonaFisica",
@@ -59,6 +77,8 @@ __all__ = [
     "Regimen",
     "Rfc",
     "RfcCifData",
+    "RfcCifExtractorPort",
+    "RfcCifSchema",
     "RfcFromImageNotFoundException",
     "RfcFromPdfNotFoundException",
     "Scraper",
