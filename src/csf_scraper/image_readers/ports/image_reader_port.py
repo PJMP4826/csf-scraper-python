@@ -20,12 +20,15 @@ class ImageReaderPort(ABC):
 
     - No lee archivos: toda la validación de formato la hace :class:`CsfImage`.
     - Devuelve :class:`RfcCifData` con los value objects ya construidos.
-    - Los fallos se reportan con excepciones de la librería; en particular
-      :class:`~csf_scraper.exceptions.image_reader.ImageReadingException`.
+    - Las implementaciones de la librería reportan sus fallos con excepciones
+      de la librería; en particular
+      :class:`~csf_scraper.exceptions.image_reader.ImageReadingException`. Un
+      motor externo puede propagar sus propias excepciones.
 
-    Implementaciones posibles:
-    :class:`~csf_scraper.image_readers.LlmImageReaderService`
-    (Gemini, OpenAI, DeepSeek, …) o un pipeline de OCR (OpenCV + Tesseract).
+    Implementaciones: :class:`~csf_scraper.image_readers.GeminiImageReader`
+    (hereda de :class:`~csf_scraper.image_readers.LlmImageReaderService` y de
+    este puerto; sirve de base para OpenAI, DeepSeek, …) o un pipeline de OCR
+    (OpenCV + Tesseract).
     """
 
     @abstractmethod

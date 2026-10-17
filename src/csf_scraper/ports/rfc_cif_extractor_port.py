@@ -20,9 +20,10 @@ class RfcCifExtractorPort(ABC):
       modelo, binarios o dependencias inyectadas).
     - El adaptador valida y devuelve :class:`RfcCifData` con los value objects
       ya construidos (``rfc: Rfc``, ``id_cif: IdCif``); nunca cadenas crudas.
-    - Los fallos se reportan con subclases de
-      :class:`~csf_scraper.exceptions.CsfScraperException`; no se filtran
-      errores del motor ni de validación de terceros.
+    - Los adaptadores de la librería reportan sus fallos con subclases de
+      :class:`~csf_scraper.exceptions.CsfScraperException`. Las dependencias
+      inyectadas (por ejemplo, un ``ImageReaderPort`` externo) pueden propagar
+      sus propias excepciones.
 
     Implementaciones: :class:`~csf_scraper.pdf_reader.CsfPdfExtractor` (texto
     del PDF) y :class:`~csf_scraper.image_readers.CsfImageExtractor` (cualquier

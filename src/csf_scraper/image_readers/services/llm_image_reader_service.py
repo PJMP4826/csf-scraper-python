@@ -14,11 +14,14 @@ nada más:
    tipado se mapea a :class:`~csf_scraper.rfc_cif_data.RfcCifData`.
 
 Lo que **no** vive aquí es el transporte hacia el proveedor ni el acceso al
-sistema de archivos. Cada adaptador concreto (``GeminiImageReader``, …) importa
-su cliente de LlamaIndex y ejecuta su propio
-``MultiModalLLMCompletionProgram`` en el *hook*
-:meth:`LlmImageReaderService._run_program`; y la lectura desde una **ruta** la hace
-:class:`~csf_scraper.image_readers.CsfImageExtractor`, que adapta cualquier
+sistema de archivos. Cada adaptador concreto (``GeminiImageReader``, …) crea su
+cliente de LlamaIndex, lo entrega como ``llm_provider`` y expone ``read()``
+delegando en el *método plantilla*
+:meth:`LlmImageReaderService._run_program`. Ese método arma la imagen y el
+prompt de cada intento, ejecuta el ``MultiModalLLMCompletionProgram`` mediante
+:meth:`LlmImageReaderService._image_to_schema` y mapea la respuesta a
+:class:`~csf_scraper.rfc_cif_data.RfcCifData`. La lectura desde una **ruta** la
+hace :class:`~csf_scraper.image_readers.CsfImageExtractor`, que adapta cualquier
 :class:`~csf_scraper.image_readers.ImageReaderPort` al contrato público
 :class:`~csf_scraper.ports.RfcCifExtractorPort`.
 """
@@ -86,26 +89,25 @@ _RESPONSE_ERRORS: tuple[type[Exception], ...] = (
 class LlmImageReaderService(ABC):
     """Base de los adaptadores de imagen basados en un LLM multimodal.
 
-    Implementa el *template method* de
-    :class:`~csf_scraper.image_readers.ports.ImageReaderPort`: arma el prompt,
-    arma la imagen, ejecuta el programa multimodal del adaptador y mapea el
-    resultado a :class:`RfcCifData`, reintentando cuando los value objects
-    rechazan el formato de negocio de los datos obtenidos.
+    Aporta el *método plantilla* :meth:`_run_program`, que arma el prompt, arma
+    la imagen, ejecuta el programa multimodal del proveedor y mapea el resultado
+    a :class:`RfcCifData`, reintentando cuando los value objects rechazan el
+    formato de negocio de los datos obtenidos.
 
-    El método público :meth:`read` es una corrutina: todo el flujo de la
-    librería es asíncrono.
+    El adaptador concreto hereda de esta clase e implementa
+    :class:`~csf_scraper.image_readers.ports.ImageReaderPort` exponiendo un
+    ``read()`` que delega en :meth:`_run_program` con su propio
+    ``llm_provider``::
 
-    Una subclase solo declara :attr:`provider` e implementa
-    :meth:`_run_program`, que es donde vive el cliente de LlamaIndex::
-
-        class MiImageReader(LlmImageReaderService):
+        class MiImageReader(LlmImageReaderService, ImageReaderPort):
             @property
             def provider(self) -> str:
                 return "mi-proveedor"
 
-            async def _run_program(self, image_documents, prompt):
-                program = MultiModalLLMCompletionProgram.from_defaults(...)
-                return cast(RfcCifSchema, await program.acall())
+            async def read(self, image):
+                return await self._run_program(
+                    image=image, llm_provider=self._llm_provider
+                )
     """
 
     #: Prompt base. Una subclase puede reescribirlo sin tocar la lógica.
@@ -130,9 +132,9 @@ class LlmImageReaderService(ABC):
     async def _run_program(self, image: CsfImage, llm_provider: LLM) -> RfcCifData:
         """Lee el RFC y el idCIF de ``image``, reintentando si hace falta.
 
-        Es el *template method*: arma la imagen, arma el prompt de cada intento,
-        delega el transporte en :meth:`_run_program` y mapea la respuesta a
-        :class:`RfcCifData`.
+        Es el *método plantilla*: arma la imagen y el prompt de cada intento,
+        delega la ejecución del programa multimodal en :meth:`_image_to_schema`
+        y mapea la respuesta a :class:`RfcCifData`.
         """
         image_documents = self._build_image_documents(image)
 
@@ -177,6 +179,7 @@ class LlmImageReaderService(ABC):
         retry_prompt: str,
         llm_provider: LLM,
     ) -> RfcCifSchema:
+        """Ejecuta el programa multimodal del proveedor para un intento."""
         program = MultiModalLLMCompletionProgram.from_defaults(
             output_cls=RfcCifSchema,
             image_documents=list(image_documents),

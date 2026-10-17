@@ -10,7 +10,9 @@ su idCIF (SAT, Constancia de Situación Fiscal).
 - [`pdftotext`](https://poppler.freedesktop.org/) (paquete del sistema
   `poppler-utils`), necesario **solo** para leer la CSF desde un archivo PDF
   (`obtain_from_pdf_path`).
-- Dependencias: `httpx`, `beautifulsoup4`, `lxml`, `pydantic`.
+- Dependencias: `httpx`, `beautifulsoup4`, `lxml`, `pydantic`, `llama-index-core`.
+  Los clientes de cada proveedor LLM son extras opcionales (`llm-gemini`,
+  `llm-deepseek`).
 
 ## Instalación
 
@@ -83,7 +85,7 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-````
+```
 
 Salida de `person.to_dict()` para una persona moral (fechas como `datetime`):
 
@@ -105,7 +107,7 @@ Salida de `person.to_dict()` para una persona moral (fechas como `datetime`):
     "regimen_de_capital": "SA DE CV",
     "fecha_constitucion": datetime(2019, 2, 21),
 }
-````
+```
 
 ## Modelos
 
@@ -166,8 +168,8 @@ sirve para ambas rutas.
 flowchart LR
     S[Scraper] -->|obtain_from_pdf_path| P[CsfPdfExtractor]
     S -->|obtain_from_image_path| B[CsfImageExtractor]
-    B -->|ImageReaderPort| L[LlmImageReaderService]
-    L -.-> G[GeminiImageReader]
+    B -->|ImageReaderPort| G[GeminiImageReader]
+    G -->|hereda| L[LlmImageReaderService]
     B -.-> T[OCR: OpenCV + Tesseract]
     P --> R[RfcCifData]
     B --> R
@@ -189,7 +191,8 @@ class RfcCifExtractorPort(ABC):
 - El constructor queda reservado para configuración del motor (API key, modelo,
   binario alternativo…).
 - Devuelve siempre `RfcCifData` con `rfc: Rfc` e `id_cif: IdCif` ya validados.
-- Solo propaga excepciones de la librería (`CsfScraperException`).
+- Los adaptadores de la librería reportan sus fallos con `CsfScraperException`;
+  las dependencias inyectadas pueden propagar sus propias excepciones.
 
 Implementaciones: `CsfPdfExtractor` (texto de `pdftotext` + `PdfCsfTextParser`)
 y `CsfImageExtractor` (puente entre una ruta y cualquier `ImageReaderPort`).
@@ -208,9 +211,10 @@ class ImageReaderPort(ABC):
 
 ### Sub-contrato de los adaptadores basados en LLM
 
-Los adaptadores de Gemini, DeepSeek, etc. no implementan `ImageReaderPort`
-directamente: heredan de `LlmImageReaderService`, que aporta el comportamiento
-común y deja al adaptador **solo la llamada al proveedor**.
+Los adaptadores de Gemini, DeepSeek, etc. heredan de `LlmImageReaderService` e
+implementan `ImageReaderPort`. La base aporta el comportamiento común; el
+adaptador crea su cliente de LlamaIndex y expone `read()` delegando en el método
+plantilla.
 
 ```python
 class LlmImageReaderService(ABC):
@@ -218,13 +222,18 @@ class LlmImageReaderService(ABC):
     provider: str  # propiedad abstracta
     model: str
 
-    async def read(self, image: CsfImage) -> RfcCifData:  # plantilla (final)
+    async def _run_program(
+        self, image: CsfImage, llm_provider: LLM
+    ) -> RfcCifData:  # plantilla
         ...
 
-    @abstractmethod
-    async def _run_program(
-        self, image_documents: Sequence[ImageBlock], prompt: str
-    ) -> RfcCifSchema: ...
+    async def _image_to_schema(
+        self,
+        image_documents: Sequence[ImageBlock],
+        retry_prompt: str,
+        llm_provider: LLM,
+    ) -> RfcCifSchema:
+        ...
 ```
 
 `LlmImageReaderService` solo tiene cuatro responsabilidades:
@@ -243,13 +252,14 @@ class LlmImageReaderService(ABC):
 | Prompt canónico         | constante `CSF_PROMPT` (+ `RETRY_PROMPT`)                  |
 | Lectura del archivo     | `CsfImage.new_from_path`, invocado por `CsfImageExtractor` |
 | Forma de la respuesta   | `RfcCifSchema` (`Field` con `description` para el modelo)  |
-| Transporte al proveedor | el adaptador concreto, en `_run_program`                   |
+| Transporte al proveedor | el adaptador crea `llm_provider` y lo pasa a `_run_program` |
 | Validación de RFC/idCIF | value objects `Rfc` / `IdCif`                              |
 | Mapeo de errores        | `ImageReadingException` y derivadas                        |
 
-Nota: la imagen se lee con `asyncio.to_thread` dentro de `CsfImageExtractor`,
-porque la lectura de disco es bloqueante; el resto del flujo (LLM, HTTP,
-`pdftotext`) usa directamente APIs asíncronas.
+Nota: la imagen se lee con `asyncio.to_thread` dentro de `CsfImageExtractor` y
+`pdftotext` se ejecuta con `asyncio.to_thread` dentro de `PdfToText`, porque
+ambas operaciones son bloqueantes; el resto del flujo (HTTP, LLM) usa APIs
+asíncronas.
 
 `RfcCifSchema` es un `BaseModel` cuyos `Field` llevan `description`; esos textos
 son los que el modelo multimodal usa para saber qué aspecto tienen el RFC y el
@@ -257,12 +267,15 @@ idCIF impresos en la Constancia de Situación Fiscal. Pydantic valida la _forma_
 (campos presentes y de tipo `str`) y los value objects validan el _formato de
 negocio_, que es justo lo que dispara los reintentos.
 
-Al adaptador se le inyecta el cliente de su proveedor y ejecuta su propio
+El adaptador crea su cliente de LlamaIndex (`GoogleGenAI`) y lo pasa al método
+plantilla; `_image_to_schema` construye y ejecuta el
 `MultiModalLLMCompletionProgram`:
 
 ```python
 class GeminiImageReader(LlmImageReaderService, ImageReaderPort):
-    def __init__(self, api_key: str, model_name: str, *, max_retries: int = MAX_RETRIES) -> None:
+    def __init__(
+        self, api_key: str, model_name: str, *, max_retries: int = MAX_RETRIES
+    ) -> None:
         super().__init__(model=model_name, max_retries=max_retries)
         self._llm_provider = GoogleGenAI(api_key=api_key, model=model_name)
 
@@ -270,16 +283,10 @@ class GeminiImageReader(LlmImageReaderService, ImageReaderPort):
     def provider(self) -> str:
         return "gemini"
 
-    async def _run_program(
-        self, image_documents: Sequence[ImageBlock], prompt: str
-    ) -> RfcCifSchema:
-        program = MultiModalLLMCompletionProgram.from_defaults(
-            output_cls=RfcCifSchema,
-            image_documents=list(image_documents),
-            prompt_template_str=prompt,
-            multi_modal_llm=self._llm_provider,
+    async def read(self, image: CsfImage) -> RfcCifSchema:
+        return await self._run_program(
+            image=image, llm_provider=self._llm_provider
         )
-        return cast(RfcCifSchema, await program.acall())
 ```
 
 El extra `llm-gemini` instala `llama-index-llms-google-genai`; el resto de la

@@ -17,8 +17,8 @@ y de cada flujo se conserva salvo donde se indica explícitamente.
 | Resolución de nombres           | `is_callable` (insensible a mayúsculas) sobre `set{Nombre}`/`get{Nombre}` | normalización `nombre.replace("_", "").lower()` contra los campos del modelo (admite `Curp` → `curp`, `ApellidoPaterno` → `apellido_paterno`, `Al` → `al`) |
 | `__isset($person->x)`           | `isset()` → `__isset()`                                                   | `getattr(person, "x", None) is not None` (los ausentes lanzan `AttributeError`)                                                                            |
 | `__unset($person->x)`           | borra de `$data`                                                          | `del person.x`                                                                                                                                             |
-| Interfaces                      | `DataExtractorInterface`, `ScraperInterface`                              | `typing.Protocol` (`class DataExtractor(DataExtractorInterface)`, …)                                                                                       |
-| Cliente HTTP                    | `GuzzleHttp\ClientInterface` inyectado                                    | `httpx.Client` concreto inyectado (no hay `HttpClientInterface`; el original tampoco define una interfaz propia)                                           |
+| Interfaces                      | `DataExtractorInterface`, `ScraperInterface`                              | no se conservan: `DataExtractor` y `Scraper` exponen sus métodos directamente                                                                              |
+| Cliente HTTP                    | `GuzzleHttp\ClientInterface` inyectado                                    | `httpx.AsyncClient` concreto inyectado (no hay `HttpClientInterface`; el original tampoco define una interfaz propia)                                      |
 | URL del validador               | `public static string $url`                                               | `Scraper.url: ClassVar[str]` (mutable por clase, como en PHP)                                                                                              |
 | Inmutabilidad                   | `final readonly` (`DataExtractor`, `CsfExtractor`, `PdfToText`)           | clases normales; Python no lo impone (los atributos solo se escriben en `__init__` o internamente)                                                         |
 
@@ -36,8 +36,8 @@ cadenas, se comparan y serializan como texto plano y no necesitan
 
 ### 1.2 Estrategias de extracción
 
-Se introduce un patrón _strategy_ con puertos (`typing.Protocol`) y un DTO
-compartido, separando dos responsabilidades que suelen confundirse:
+Se introduce un patrón _strategy_ con puertos (`ABC`) y un DTO compartido,
+separando dos responsabilidades que suelen confundirse:
 
 - **Origen** (contrato público de `Scraper`): `RfcCifExtractorPort`, que recibe
   una **ruta** de archivo.
@@ -48,7 +48,7 @@ compartido, separando dos responsabilidades que suelen confundirse:
 | --------------------- | ------------------------------------------------------------- | ------------------------------------------- |
 | `RfcCifExtractorPort` | `CsfPdfExtractor` (texto de `pdftotext` + `PdfCsfTextParser`) | `async extract(path: str) -> RfcCifData`    |
 | `RfcCifExtractorPort` | `CsfImageExtractor` (puente ruta → motor)                     | `async extract(path: str) -> RfcCifData`    |
-| `ImageReaderPort`     | _(a definir por el usuario)_ `LlmImageReaderService`, OCR     | `async read(image: CsfImage) -> RfcCifData` |
+| `ImageReaderPort`     | `GeminiImageReader` (hereda de `LlmImageReaderService`), OCR  | `async read(image: CsfImage) -> RfcCifData` |
 
 Decisiones asociadas:
 
@@ -59,11 +59,13 @@ Decisiones asociadas:
   de modo que OCR y LLM comparten la misma firma pública y `Scraper` nunca
   distingue motores.
 
-Los adaptadores basados en LLM (Gemini, DeepSeek…) no implementan
-`ImageReaderPort` directamente: heredan de la clase abstracta
-`LlmImageReaderService`, que aplica el método plantilla `read()` y deja al
-adaptador solo `_run_program(image_documents, prompt) -> RfcCifSchema`. Así
-todos comparten el prompt (`CSF_PROMPT`), el armado del `ImageBlock`, los
+Los adaptadores basados en LLM (Gemini, DeepSeek…) heredan de la clase abstracta
+`LlmImageReaderService` e implementan `ImageReaderPort`. La base aporta el
+método plantilla `_run_program(image, llm_provider) -> RfcCifData`, que arma el
+prompt y el `ImageBlock`, ejecuta el programa multimodal mediante
+`_image_to_schema(...)` y mapea el `RfcCifSchema` a `RfcCifData`. El adaptador
+solo crea su cliente de LlamaIndex y expone `read()` delegando en esa plantilla.
+Así todos comparten el prompt (`CSF_PROMPT`), el armado del `ImageBlock`, los
 reintentos, la validación con los value objects y el mapeo del esquema tipado a
 `RfcCifData`.
 
@@ -117,14 +119,14 @@ Todos los códigos/atributos originales se conservan: `CifDownloadException` man
 
 | Aspecto         | PHP                                                  | Python                                                                                                                                             |
 | --------------- | ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| HTTP            | Guzzle (`follow_redirects` por defecto, sin timeout) | `httpx.Client(follow_redirects=True, timeout=None)` en `Scraper.create()`                                                                          |
+| HTTP            | Guzzle (`follow_redirects` por defecto, sin timeout) | `httpx.AsyncClient(follow_redirects=True, timeout=None)` en `Scraper.create()`                                                                     |
 | Cifrado TLS     | `CURLOPT_SSL_CIPHER_LIST => 'DEFAULT@SECLEVEL=1'`    | `ssl.SSLContext.set_ciphers('DEFAULT@SECLEVEL=1')` (verificado: `security_level == 1`)                                                             |
 | User-Agent      | `GuzzleHttp/7`                                       | `python-httpx/…` (sin impacto en el flujo)                                                                                                         |
-| Cookies         | sin middleware                                       | `httpx.Client` tiene jar; el flujo hace una petición por invocación                                                                                |
+| Cookies         | sin middleware                                       | `httpx.AsyncClient` tiene jar; el flujo hace una petición por invocación                                                                           |
 | PDF → texto     | `symfony/process` (`Process::run`)                   | `subprocess.run` (misma lista de argumentos, sin shell)                                                                                            |
 | Binario externo | `pdftotext` (`poppler-utils`)                        | idéntico requisito de despliegue                                                                                                                   |
 | Parsing HTML    | `symfony/dom-crawler` (CSS + XPath)                  | `BeautifulSoup` + `lxml` (selectores CSS; el XPath `contains(normalize-space(.), …)` se emula con normalización en Python)                         |
-| Texto           | `trim()`/`preg_replace` nativos                      | `csf_scraper.text_utils` (`php_trim`, `normalize_white_spaces`, `xml_normalize_space`) con la misma charlist/clase `\s` verificadas contra PHP 8.5 |
+| Texto           | `trim()`/`preg_replace` nativos                      | normalización nativa en `data_extractor.py` (`" ".join(value.split())`), equivalente a `trim` y `\s` de PHP                                        |
 
 ## 5. Adaptaciones de tests (solo tests)
 

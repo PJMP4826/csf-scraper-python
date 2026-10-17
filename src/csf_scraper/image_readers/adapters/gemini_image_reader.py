@@ -29,10 +29,11 @@ class GeminiImageReader(LlmImageReaderService, ImageReaderPort):
     """Lee el RFC y el idCIF de una imagen de CSF usando Gemini.
 
     Hereda de :class:`~csf_scraper.image_readers.services.LlmImageReaderService`
-    el prompt, el armado de la imagen, los reintentos y el mapeo a
+    el prompt, el armado de la imagen, los reintentos, la ejecución del
+    programa multimodal y el mapeo a
     :class:`~csf_scraper.rfc_cif_data.RfcCifData`. Lo propio de este adaptador
-    es crear el cliente de LlamaIndex y ejecutar el programa multimodal que
-    tipa la respuesta con :class:`~csf_scraper.image_readers.RfcCifSchema`.
+    es crear el cliente ``GoogleGenAI`` y exponer ``read()`` delegando en el
+    método plantilla de la clase base.
 
     Args:
         api_key: Clave de la API de Google GenAI.
@@ -58,5 +59,5 @@ class GeminiImageReader(LlmImageReaderService, ImageReaderPort):
         return "gemini"
 
     async def read(self, image: CsfImage) -> RfcCifSchema:
-        """Ejecuta el programa multimodal de LlamaIndex y tipa la respuesta."""
+        """Delega el flujo de reintentos y mapeo en el método plantilla."""
         return await self._run_program(image=image, llm_provider=self._llm_provider)
