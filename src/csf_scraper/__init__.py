@@ -9,6 +9,9 @@ from csf_scraper.exceptions import (
 from csf_scraper.exceptions.image_reader import (
     CifFromImageNotFoundException,
     ImageExtractorNotConfiguredException,
+    ImageReaderApiException,
+    ImageReaderAuthenticationException,
+    ImageReaderUnavailableException,
     ImageReadingException,
     InvalidImageException,
     InvalidImageFormatException,
@@ -27,6 +30,8 @@ from csf_scraper.exceptions.value_objects import (
 from csf_scraper.image_readers import (
     CSF_PROMPT,
     MAX_RETRIES,
+    MAX_RETRY_BACKOFF,
+    RETRY_BACKOFF,
     RETRY_PROMPT,
     CsfImageExtractor,
     GeminiImageReader,
@@ -47,6 +52,8 @@ from csf_scraper.value_objects import CsfImage, IdCif, Rfc
 __all__ = [
     "CSF_PROMPT",
     "MAX_RETRIES",
+    "MAX_RETRY_BACKOFF",
+    "RETRY_BACKOFF",
     "RETRY_PROMPT",
     "CifDownloadException",
     "CifFromImageNotFoundException",
@@ -61,7 +68,10 @@ __all__ = [
     "GeminiImageReader",
     "IdCif",
     "ImageExtractorNotConfiguredException",
+    "ImageReaderApiException",
+    "ImageReaderAuthenticationException",
     "ImageReaderPort",
+    "ImageReaderUnavailableException",
     "ImageReadingException",
     "InvalidIdCifFormatException",
     "InvalidImageException",

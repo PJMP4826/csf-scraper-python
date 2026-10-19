@@ -1,16 +1,23 @@
 """Base común de los adaptadores de imagen basados en un LLM multimodal.
 
-:class:`LlmImageReaderService` concentra exactamente cuatro responsabilidades y
+:class:`LlmImageReaderService` concentra exactamente cinco responsabilidades y
 nada más:
 
 1. **Armado del prompt** — el texto canónico (:data:`CSF_PROMPT`) más la
    realimentación del intento anterior cuando toca reintentar.
 2. **Armado de la imagen del mensaje** — la CSF viaja como un único
    :class:`~llama_index.core.base.llms.types.ImageBlock`.
-3. **Reintentos** — cuando los value objects :class:`~csf_scraper.value_objects.Rfc`
-   y :class:`~csf_scraper.value_objects.IdCif` rechazan el formato de negocio,
-   se vuelve a interrogar al modelo pasándole el error como contexto.
-4. **Parseo al DTO** — un :class:`~csf_scraper.image_readers.RfcCifSchema` ya
+3. **Reintentos por respuestas inválidas** — cuando los value objects
+   :class:`~csf_scraper.value_objects.Rfc` y
+   :class:`~csf_scraper.value_objects.IdCif` rechazan el formato de negocio, se
+   vuelve a interrogar al modelo pasándole el error como contexto.
+4. **Reintentos por errores de API** — cuando el proveedor responde que está
+   saturado, caído o inalcanzable, se vuelve a intentar tras una espera
+   creciente. El adaptador traduce las excepciones de su proveedor con
+   :meth:`LlmImageReaderService._translate_api_exception`, de modo que esta
+   clase —y el resto de la librería— nunca importe las excepciones de Gemini,
+   OpenAI, etc.
+5. **Parseo al DTO** — un :class:`~csf_scraper.image_readers.RfcCifSchema` ya
    tipado se mapea a :class:`~csf_scraper.rfc_cif_data.RfcCifData`.
 
 Lo que **no** vive aquí es el transporte hacia el proveedor ni el acceso al
@@ -28,17 +35,21 @@ hace :class:`~csf_scraper.image_readers.CsfImageExtractor`, que adapta cualquier
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from typing import ClassVar, cast
 
+import httpx
 from llama_index.core.base.llms.types import ImageBlock
 from llama_index.core.program import MultiModalLLMCompletionProgram
 from llama_index.core.llms.llm import LLM
 
 from csf_scraper.exceptions.image_reader import (
     CifFromImageNotFoundException,
+    ImageReaderApiException,
+    ImageReaderUnavailableException,
     ImageReadingException,
     RfcFromImageNotFoundException,
 )
@@ -51,30 +62,25 @@ from csf_scraper.rfc_cif_data import RfcCifData
 from csf_scraper.value_objects.csf_image import CsfImage
 from csf_scraper.value_objects.id_cif import IdCif
 from csf_scraper.value_objects.rfc import Rfc
+from csf_scraper.image_readers.adapters.llms.prompts.llm_image_reader_prompt import (
+    RETRY_PROMPT,
+    CSF_PROMPT,
+)
 
 logger = logging.getLogger(__name__)
 
 #: Número de envíos al modelo antes de rendirse.
 MAX_RETRIES = 3
 
-#: Prompt canónico. Todos los adaptadores LLM parten de este texto.
-CSF_PROMPT = (
-    "Analiza la imagen adjunta, que es una Constancia de Situación Fiscal "
-    "emitida por el SAT, y extrae el RFC y el idCIF que aparecen en el "
-    "encabezado del documento. Transcribe ambos valores exactamente como están "
-    "impresos: conserva las mayúsculas, el signo & y la Ñ si aparecen, y no "
-    "elimines los ceros a la izquierda del idCIF. No inventes ni completes "
-    "valores: si un dato no se distingue en la imagen, devuélvelo como cadena "
-    "vacía."
-)
+#: Espera inicial, en segundos, antes de reintentar tras un error de API. Se
+#: duplica en cada intento (1, 2, 4, …) hasta :data:`MAX_RETRY_BACKOFF`.
+RETRY_BACKOFF = 1.0
 
-#: Sufijo que se agrega al prompt cuando el intento anterior fue rechazado.
-RETRY_PROMPT = (
-    "\n\nATENCIÓN: el intento #{previous_attempt} fue descartado por este "
-    "motivo:\n{error}\n\n"
-    "Vuelve a revisar la imagen con cuidado, carácter por carácter, y corrige "
-    "exactamente eso antes de responder."
-)
+#: Tope de la espera entre reintentos, en segundos.
+MAX_RETRY_BACKOFF = 30.0
+
+#: Prompt canónico. Todos los adaptadores LLM parten de este texto.
+
 
 #: Errores provocados por la *respuesta* del modelo. Se reintentan
 #: realimentando el mensaje de error al prompt.
@@ -85,14 +91,25 @@ _RESPONSE_ERRORS: tuple[type[Exception], ...] = (
     CifFromImageNotFoundException,
 )
 
+#: Errores de transporte genéricos. ``TimeoutError``/``ConnectionError`` vienen
+#: de la stdlib y los de ``httpx`` los usan por igual todos los SDK de LLM que
+#: esta librería puede albergar; ninguno es específico de un proveedor.
+_TRANSPORT_ERRORS: tuple[type[Exception], ...] = (
+    TimeoutError,
+    ConnectionError,
+    httpx.TimeoutException,
+    httpx.TransportError,
+)
+
 
 class LlmImageReaderService(ABC):
     """Base de los adaptadores de imagen basados en un LLM multimodal.
 
     Aporta el *método plantilla* :meth:`_run_program`, que arma el prompt, arma
     la imagen, ejecuta el programa multimodal del proveedor y mapea el resultado
-    a :class:`RfcCifData`, reintentando cuando los value objects rechazan el
-    formato de negocio de los datos obtenidos.
+    a :class:`RfcCifData`, reintentando tanto cuando los value objects rechazan
+    el formato de negocio de los datos obtenidos como cuando la API del
+    proveedor falla de forma temporal.
 
     El adaptador concreto hereda de esta clase e implementa
     :class:`~csf_scraper.image_readers.ports.ImageReaderPort` exponiendo un
@@ -113,11 +130,22 @@ class LlmImageReaderService(ABC):
     #: Prompt base. Una subclase puede reescribirlo sin tocar la lógica.
     prompt: ClassVar[str] = CSF_PROMPT
 
-    def __init__(self, *, model: str, max_retries: int = MAX_RETRIES) -> None:
+    def __init__(
+        self,
+        *,
+        model: str,
+        max_retries: int = MAX_RETRIES,
+        retry_backoff: float = RETRY_BACKOFF,
+    ) -> None:
         if max_retries < 1:
             raise ValueError(f"max_retries must be at least 1, got {max_retries}.")
+        if retry_backoff < 0:
+            raise ValueError(
+                f"retry_backoff must be zero or positive, got {retry_backoff}."
+            )
         self._model = model
         self._max_retries = max_retries
+        self._retry_backoff = retry_backoff
 
     @property
     def model(self) -> str:
@@ -135,6 +163,20 @@ class LlmImageReaderService(ABC):
         Es el *método plantilla*: arma la imagen y el prompt de cada intento,
         delega la ejecución del programa multimodal en :meth:`_image_to_schema`
         y mapea la respuesta a :class:`RfcCifData`.
+
+        Se reintenta en dos casos:
+
+        - **Respuesta inválida**: los value objects rechazan el formato de
+          negocio. El error viaja de vuelta al prompt para que el modelo se
+          corrija.
+        - **Error de API reintentable**: el proveedor está saturado, caído o no
+          es alcanzable. Se espera un tiempo creciente (ver
+          :data:`RETRY_BACKOFF`) y se repite el *mismo* prompt, porque el
+          problema no está en la imagen ni en la respuesta.
+
+        Un error de API no reintentable (credenciales inválidas, petición mal
+        formada) o cualquier otra excepción inesperada se propaga de inmediato:
+        repetirla daría el mismo resultado.
         """
         image_documents = self._build_image_documents(image)
 
@@ -158,12 +200,27 @@ class LlmImageReaderService(ABC):
                 last_error = exception
                 previous_error = str(exception)
                 self._log_retry(attempt, exception)
+                # Sin espera: la corrección viaja en el prompt del reintento.
+                continue
             except Exception as exception:
-                raise ImageReadingException(
-                    f"The {self.provider} engine failed to read the image.",
-                    provider=self.provider,
-                    model=self.model,
-                ) from exception
+                api_error = self._translate_api_exception(exception)
+                print("API ERROR: ", api_error)
+                if api_error is None:
+                    raise ImageReadingException(
+                        f"The {self.provider} engine failed to read the image.",
+                        provider=self.provider,
+                        model=self.model,
+                    ) from exception
+                if not api_error.retryable:
+                    raise api_error from exception
+
+                last_error = api_error
+                # El error no proviene de la respuesta del modelo: se repite el
+                # prompt canónico en lugar de realimentar el fallo de la API.
+                previous_error = None
+                self._log_retry(attempt, api_error)
+
+            await self._wait_before_retry(attempt)
 
         if last_error is not None:
             raise last_error
@@ -172,6 +229,51 @@ class LlmImageReaderService(ABC):
             provider=self.provider,
             model=self.model,
         )
+
+    def _translate_api_exception(
+        self, exception: Exception
+    ) -> ImageReaderApiException | None:
+        """Traduce una excepción del proveedor a una de la librería.
+
+        Es el punto de extensión de los adaptadores: cada uno mapea los tipos de
+        error de su SDK a :class:`ImageReaderApiException` (o a sus derivadas
+        :class:`ImageReaderUnavailableException` y
+        :class:`ImageReaderAuthenticationException`), marcando ``retryable``.
+
+        Devolver ``None`` significa «no sé qué es»: la plantilla envuelve la
+        excepción original en :class:`ImageReadingException` sin reintentar.
+
+        La implementación base solo reconoce los errores de transporte de la
+        stdlib, que no pertenecen a ningún proveedor en particular.
+        """
+        if isinstance(exception, _TRANSPORT_ERRORS):
+            return ImageReaderUnavailableException(
+                f"The {self.provider} service is not reachable.",
+                provider=self.provider,
+                model=self.model,
+            )
+        return None
+
+    async def _wait_before_retry(self, attempt: int) -> None:
+        """Espera un tiempo creciente entre intentos (1, 2, 4, … segundos).
+
+        No espera tras el último intento: ya no queda nada que reintentar.
+        """
+        if attempt >= self._max_retries:
+            return
+        delay = self._retry_delay(attempt)
+        if delay > 0:
+            await asyncio.sleep(delay)
+
+    def _retry_delay(self, attempt: int) -> float:
+        """Segundos de espera antes del intento ``attempt + 1``.
+
+        Crece exponencialmente desde ``retry_backoff`` y se topa en
+        :data:`MAX_RETRY_BACKOFF` para no esperar indefinidamente.
+        """
+        if self._retry_backoff == 0:
+            return 0.0
+        return min(self._retry_backoff * (2 ** (attempt - 1)), MAX_RETRY_BACKOFF)
 
     async def _image_to_schema(
         self,
