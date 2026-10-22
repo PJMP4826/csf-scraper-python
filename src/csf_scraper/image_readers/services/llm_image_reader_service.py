@@ -43,8 +43,8 @@ from typing import ClassVar, cast
 
 import httpx
 from llama_index.core.base.llms.types import ImageBlock
-from llama_index.core.program import MultiModalLLMCompletionProgram
 from llama_index.core.llms.llm import LLM
+from llama_index.core.program import MultiModalLLMCompletionProgram
 
 from csf_scraper.exceptions.image_reader import (
     CifFromImageNotFoundException,
@@ -57,15 +57,15 @@ from csf_scraper.exceptions.value_objects import (
     InvalidIdCifFormatException,
     InvalidRfcFormatException,
 )
+from csf_scraper.image_readers.adapters.llms.prompts.llm_image_reader_prompt import (
+    CSF_PROMPT,
+    RETRY_PROMPT,
+)
 from csf_scraper.image_readers.schemas.rfc_cif_schema import RfcCifSchema
 from csf_scraper.rfc_cif_data import RfcCifData
 from csf_scraper.value_objects.csf_image import CsfImage
 from csf_scraper.value_objects.id_cif import IdCif
 from csf_scraper.value_objects.rfc import Rfc
-from csf_scraper.image_readers.adapters.llms.prompts.llm_image_reader_prompt import (
-    RETRY_PROMPT,
-    CSF_PROMPT,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -140,9 +140,7 @@ class LlmImageReaderService(ABC):
         if max_retries < 1:
             raise ValueError(f"max_retries must be at least 1, got {max_retries}.")
         if retry_backoff < 0:
-            raise ValueError(
-                f"retry_backoff must be zero or positive, got {retry_backoff}."
-            )
+            raise ValueError(f"retry_backoff must be zero or positive, got {retry_backoff}.")
         self._model = model
         self._max_retries = max_retries
         self._retry_backoff = retry_backoff
@@ -155,7 +153,7 @@ class LlmImageReaderService(ABC):
     @property
     @abstractmethod
     def provider(self) -> str:
-        """Identificador del proveedor (``"gemini"``, ``"deepseek"``, …)."""
+        """Identificador del proveedor (``"gemini"``, …)."""
 
     async def _run_program(self, image: CsfImage, llm_provider: LLM) -> RfcCifData:
         """Lee el RFC y el idCIF de ``image``, reintentando si hace falta.
@@ -182,11 +180,10 @@ class LlmImageReaderService(ABC):
 
         previous_error: str | None = None
         last_error: Exception | None = None
+        last_cause: Exception | None = None
 
         for attempt in range(1, self._max_retries + 1):
-            retry_prompt = self._build_prompt(
-                previous_error=previous_error, attempt=attempt
-            )
+            retry_prompt = self._build_prompt(previous_error=previous_error, attempt=attempt)
 
             try:
                 schema = await self._image_to_schema(
@@ -204,7 +201,6 @@ class LlmImageReaderService(ABC):
                 continue
             except Exception as exception:
                 api_error = self._translate_api_exception(exception)
-                print("API ERROR: ", api_error)
                 if api_error is None:
                     raise ImageReadingException(
                         f"The {self.provider} engine failed to read the image.",
@@ -215,6 +211,7 @@ class LlmImageReaderService(ABC):
                     raise api_error from exception
 
                 last_error = api_error
+                last_cause = exception
                 # El error no proviene de la respuesta del modelo: se repite el
                 # prompt canónico en lugar de realimentar el fallo de la API.
                 previous_error = None
@@ -223,16 +220,14 @@ class LlmImageReaderService(ABC):
             await self._wait_before_retry(attempt)
 
         if last_error is not None:
-            raise last_error
+            raise last_error from last_cause
         raise ImageReadingException(  # pragma: no cover - max_retries >= 1
             f"The {self.provider} engine did not process the image.",
             provider=self.provider,
             model=self.model,
         )
 
-    def _translate_api_exception(
-        self, exception: Exception
-    ) -> ImageReaderApiException | None:
+    def _translate_api_exception(self, exception: Exception) -> ImageReaderApiException | None:
         """Traduce una excepción del proveedor a una de la librería.
 
         Es el punto de extensión de los adaptadores: cada uno mapea los tipos de
@@ -273,7 +268,7 @@ class LlmImageReaderService(ABC):
         """
         if self._retry_backoff == 0:
             return 0.0
-        return min(self._retry_backoff * (2 ** (attempt - 1)), MAX_RETRY_BACKOFF)
+        return min(self._retry_backoff * float(2 ** (attempt - 1)), MAX_RETRY_BACKOFF)
 
     async def _image_to_schema(
         self,
@@ -309,13 +304,9 @@ class LlmImageReaderService(ABC):
         id_cif = schema.id_cif.strip()
 
         if not rfc:
-            raise RfcFromImageNotFoundException(
-                "The LLM response does not contain an RFC value."
-            )
+            raise RfcFromImageNotFoundException("The LLM response does not contain an RFC value.")
         if not id_cif:
-            raise CifFromImageNotFoundException(
-                "The LLM response does not contain an idCIF value."
-            )
+            raise CifFromImageNotFoundException("The LLM response does not contain an idCIF value.")
 
         return RfcCifData(rfc=Rfc(rfc), id_cif=IdCif(id_cif))
 
@@ -323,9 +314,7 @@ class LlmImageReaderService(ABC):
         """Devuelve el prompt del intento ``attempt``, con realimentación opcional."""
         if previous_error is None:
             return self.prompt
-        return self.prompt + RETRY_PROMPT.format(
-            previous_attempt=attempt - 1, error=previous_error
-        )
+        return self.prompt + RETRY_PROMPT.format(previous_attempt=attempt - 1, error=previous_error)
 
     def _log_retry(self, attempt: int, exception: Exception) -> None:
         if attempt >= self._max_retries:
