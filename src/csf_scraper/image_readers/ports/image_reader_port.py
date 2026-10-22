@@ -25,9 +25,9 @@ class ImageReaderPort(ABC):
       :class:`~csf_scraper.exceptions.image_reader.ImageReadingException`. Un
       motor externo puede propagar sus propias excepciones.
 
-    Implementaciones: :class:`~csf_scraper.image_readers.GeminiImageReader`
+    Implementaciones: :class:`~csf_scraper.image_readers.adapters.llms.GeminiImageReader`
     (hereda de :class:`~csf_scraper.image_readers.LlmImageReaderService` y de
-    este puerto; sirve de base para OpenAI, DeepSeek, …) o un pipeline de OCR
+    este puerto; sirve de base para otros proveedores) o un pipeline de OCR
     (OpenCV + Tesseract).
     """
 

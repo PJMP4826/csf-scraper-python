@@ -8,7 +8,8 @@ transporte hacia el proveedor es responsabilidad exclusiva del adaptador::
     reader = GeminiImageReader(api_key="…", model_name="gemini-2.5-flash")
 
 El paquete ``llama-index-llms-google-genai`` es una dependencia opcional
-(``pip install csf-scraper[llm-gemini]``).
+(``pip install "csf-scraper-python[llm-gemini]"``), junto con el SDK
+``google-genai`` que este adaptador importa directamente.
 
 Las excepciones de ``google.genai.errors`` se traducen en
 :meth:`GeminiImageReader._translate_api_exception` a excepciones de la librería,
@@ -25,15 +26,14 @@ from csf_scraper.exceptions.image_reader import (
     ImageReaderAuthenticationException,
     ImageReaderUnavailableException,
 )
-from csf_scraper.rfc_cif_data import RfcCifData
-from csf_scraper.value_objects.csf_image import CsfImage
 from csf_scraper.image_readers.ports.image_reader_port import ImageReaderPort
-from csf_scraper.image_readers.schemas.rfc_cif_schema import RfcCifSchema
 from csf_scraper.image_readers.services.llm_image_reader_service import (
     MAX_RETRIES,
     RETRY_BACKOFF,
     LlmImageReaderService,
 )
+from csf_scraper.rfc_cif_data import RfcCifData
+from csf_scraper.value_objects.csf_image import CsfImage
 
 #: Códigos HTTP de Google que indican una falla temporal del servicio: el
 #: límite de peticiones (429), los errores del servidor (5xx) y los timeouts de
@@ -129,8 +129,6 @@ class GeminiImageReader(LlmImageReaderService, ImageReaderPort):
 
         status_code = exception.code or None
         status = (exception.status or "").upper()
-        print(status_code)
-        print(status)
 
         if status_code in {401, 403} or status in _AUTHENTICATION_STATUSES:
             return ImageReaderAuthenticationException(
@@ -151,8 +149,7 @@ class GeminiImageReader(LlmImageReaderService, ImageReaderPort):
             )
 
         return ImageReaderApiException(
-            f"The {self.provider} API returned an error: "
-            f"{exception.message or status_code}",
+            f"The {self.provider} API returned an error: {exception.message or status_code}",
             provider=self.provider,
             model=self.model,
             status_code=status_code,
