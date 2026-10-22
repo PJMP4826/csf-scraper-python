@@ -3,17 +3,27 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "csf-scraper"
-version = "0.1.0"
+name = "csf-scraper-python"
+version = "0.1.1"
 description = "Obtiene los datos fiscales actuales de una persona moral o física dado su RFC y su idCIF (port de phpcfdi/csf-scraper)"
 readme = "README.md"
 license = "MIT"
 authors = [
-    { name = "Cesar Aguilera", email = "cesargnu29@gmail.com" },
-    { name = "Misael Limón", email = "misael.limon@ocelotlstudio.com" },
-    { name = "Fernando Isidro", email = "fernando.isidro@ocelotlstudio.com" },
+    { name = "PJMP4826", email = "faustojaviermendozaperez.tareas@gmail.com" },
 ]
 keywords = ["phpcfdi", "sat", "csf", "rfc", "scraper"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Framework :: AsyncIO",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Typing :: Typed",
+]
 requires-python = ">=3.11"
 dependencies = [
     "beautifulsoup4>=4.12",
@@ -21,12 +31,13 @@ dependencies = [
     "llama-index-core>=0.14",
     "lxml>=5.0",
     "pydantic>=2.7",
+    "pydantic-core>=2.18",
 ]
 
 [project.urls]
-Homepage = "https://github.com/phpcfdi/csf-scraper"
-Issues = "https://github.com/phpcfdi/csf-scraper/issues"
-Source = "https://github.com/phpcfdi/csf-scraper"
+Homepage = "https://github.com/PJMP4826/csf-scraper-python"
+Issues = "https://github.com/PJMP4826/csf-scraper-python/issues"
+Source = "https://github.com/PJMP4826/csf-scraper-python"
 
 [project.optional-dependencies]
 dev = [
@@ -35,8 +46,10 @@ dev = [
     "respx>=0.22",
     "ruff>=0.6",
 ]
-llm-gemini = ["llama-index-llms-google-genai>=0.6"]
-llm-deepseek = ["llama-index-llms-deepseek>=0.4"]
+llm-gemini = [
+    "google-genai>=1.0",
+    "llama-index-llms-google-genai>=0.11,<0.12",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/csf_scraper"]
