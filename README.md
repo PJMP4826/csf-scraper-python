@@ -11,10 +11,21 @@ su idCIF (SAT, Constancia de Situación Fiscal).
   `poppler-utils`), necesario **solo** para leer la CSF desde un archivo PDF
   (`obtain_from_pdf_path`).
 - Dependencias: `httpx`, `beautifulsoup4`, `lxml`, `pydantic`, `llama-index-core`.
-  Los clientes de cada proveedor LLM son extras opcionales (`llm-gemini`,
-  `llm-deepseek`).
+  Los clientes de cada proveedor LLM son extras opcionales (`llm-gemini`).
 
 ## Instalación
+
+Desde PyPI (solo lectura de CSF por RFC+idCIF y por PDF):
+
+```bash
+pip install csf-scraper-python
+```
+
+Para leer CSF escaneadas (JPEG/PNG) con Gemini, agrega el extra:
+
+```bash
+pip install "csf-scraper-python[llm-gemini]"
+```
 
 Desde el código fuente:
 
@@ -65,13 +76,13 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-Para leer una CSF escaneada (JPEG/PNG) se inyecta el motor de lectura de imágenes:
+Para leer una CSF escaneada (JPEG/PNG) se inyecta el motor de lectura de imágenes.
+Requiere el extra `llm-gemini`:
 
 ```python
 import asyncio
 
-from csf_scraper import CsfImageExtractor, Scraper
-from csf_scraper.image_readers.adapters.gemini_image_reader import GeminiImageReader
+from csf_scraper import CsfImageExtractor, GeminiImageReader, Scraper
 
 
 async def main() -> None:
@@ -83,8 +94,6 @@ async def main() -> None:
 
 if __name__ == "__main__":
     asyncio.run(main())
-```
-
 ```
 
 Salida de `person.to_dict()` para una persona moral (fechas como `datetime`):
@@ -247,14 +256,14 @@ class LlmImageReaderService(ABC):
    se reintentan: se envuelven en `ImageReadingException`.
 4. **Parseo al DTO**: un `RfcCifSchema` ya tipado se mapea a `RfcCifData`.
 
-| Responsabilidad         | Dónde vive                                                 |
-| ----------------------- | ---------------------------------------------------------- |
-| Prompt canónico         | constante `CSF_PROMPT` (+ `RETRY_PROMPT`)                  |
-| Lectura del archivo     | `CsfImage.new_from_path`, invocado por `CsfImageExtractor` |
-| Forma de la respuesta   | `RfcCifSchema` (`Field` con `description` para el modelo)  |
+| Responsabilidad         | Dónde vive                                                  |
+| ----------------------- | ----------------------------------------------------------- |
+| Prompt canónico         | constante `CSF_PROMPT` (+ `RETRY_PROMPT`)                   |
+| Lectura del archivo     | `CsfImage.new_from_path`, invocado por `CsfImageExtractor`  |
+| Forma de la respuesta   | `RfcCifSchema` (`Field` con `description` para el modelo)   |
 | Transporte al proveedor | el adaptador crea `llm_provider` y lo pasa a `_run_program` |
-| Validación de RFC/idCIF | value objects `Rfc` / `IdCif`                              |
-| Mapeo de errores        | `ImageReadingException` y derivadas                        |
+| Validación de RFC/idCIF | value objects `Rfc` / `IdCif`                               |
+| Mapeo de errores        | `ImageReadingException` y derivadas                         |
 
 Nota: la imagen se lee con `asyncio.to_thread` dentro de `CsfImageExtractor` y
 `pdftotext` se ejecuta con `asyncio.to_thread` dentro de `PdfToText`, porque
@@ -325,7 +334,7 @@ Todas heredan de `CsfScraperException`:
 python -m venv .venv
 .venv/bin/pip install -e ".[dev]"
 .venv/bin/ruff check .
-.venv/bin/mypy src
+.venv/bin/mypy
 .venv/bin/pytest
 ```
 
