@@ -1,4 +1,4 @@
-# csf-scraper
+# csf-scraper-python
 
 Port a Python de [phpcfdi/csf-scraper](https://github.com/phpcfdi/csf-scraper):
 obtiene los datos fiscales actuales de una persona moral o física dado su RFC y
@@ -38,6 +38,10 @@ pip install .
 Todo el flujo es asíncrono: `Scraper` envuelve un `httpx.AsyncClient` y todos
 los métodos de lectura son corrutinas, así que se consumen con `await`.
 
+`Scraper.create()` crea y devuelve la instancia directamente; **no** es
+obligatorio usarla con `async with`. Basta con cerrar el cliente al terminar,
+ya sea llamando a `aclose()` o usando el scraper como _async context manager_:
+
 ```python
 import asyncio
 
@@ -45,14 +49,17 @@ from csf_scraper import Scraper
 
 
 async def main() -> None:
-    # El scraper es un context manager asíncrono: cierra el AsyncClient al salir
-    async with Scraper.create() as scraper:
+    scraper = Scraper.create()
+
+    try:
         # RFC + idCIF directamente (se validan con los value objects Rfc e IdCif)
         person = await scraper.obtain_from_rfc_and_cif("DIM8701081LA", "1904014102123")
 
         # También puedes obtener los datos directamente de un archivo local PDF
         # (requiere pdftotext / poppler-utils instalado)
         person = await scraper.obtain_from_pdf_path("ruta/al/csf.pdf")
+    finally:
+        await scraper.aclose()
 
     # Acceso a los datos de la persona (moral o física) por atributos
     if person.is_fisica():
@@ -76,6 +83,16 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
+Si prefieres no gestionar el cierre manualmente, el scraper también funciona
+como _async context manager_ (cierra el `AsyncClient` al salir del bloque):
+
+```python
+async def main() -> None:
+    async with Scraper.create() as scraper:
+        person = await scraper.obtain_from_rfc_and_cif("DIM8701081LA", "1904014102123")
+    print(person.to_dict())
+```
+
 Para leer una CSF escaneada (JPEG/PNG) se inyecta el motor de lectura de imágenes.
 Requiere el extra `llm-gemini`:
 
@@ -87,8 +104,11 @@ from csf_scraper import CsfImageExtractor, GeminiImageReader, Scraper
 
 async def main() -> None:
     reader = GeminiImageReader(api_key="…", model_name="…")
-    async with Scraper.create(image_extractor=CsfImageExtractor(reader)) as scraper:
+    scraper = Scraper.create(image_extractor=CsfImageExtractor(reader))
+    try:
         person = await scraper.obtain_from_image_path("ruta/al/csf.png")
+    finally:
+        await scraper.aclose()
     print(person.to_dict())
 
 
@@ -96,14 +116,31 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-Salida de `person.to_dict()` para una persona moral (fechas como `datetime`):
+`to_dict()` devuelve el conjunto completo de propiedades del modelo que se haya
+obtenido: los campos comunes de `Persona` más los propios de `PersonaMoral` o de
+`PersonaFisica`. Las fechas se devuelven como `datetime` (o `None`) y los value
+objects `Rfc`/`IdCif` como cadenas.
+
+Salida de `person.to_dict()` para una **persona moral**:
 
 ```python
 {
+    # Compartidos con PersonaFisica
     "rfc": "DIM8701081LA",
     "id_cif": "12345678",
     "fecha_inicio_operaciones": datetime(2019, 2, 21),
-    # …
+    "situacion_contribuyente": "ACTIVO",
+    "fecha_ultimo_cambio_situacion": datetime(2019, 2, 21),
+    "entidad_federativa": "CIUDAD DE MEXICO",
+    "municipio_delegacion": "CUAUHTEMOC",
+    "colonia": "CENTRO",
+    "tipo_vialidad": "CALLE",
+    "nombre_vialidad": "AVENIDA REFORMA",
+    "numero_exterior": "123",
+    "numero_interior": "A",
+    "codigo_postal": "06000",
+    "correo_electronico": "contacto@ejemplo.mx",
+    "al": "CIUDAD DE MEXICO",
     "regimenes": [
         {
             "regimen": "Régimen General de Ley Personas Morales",
@@ -112,11 +149,52 @@ Salida de `person.to_dict()` para una persona moral (fechas como `datetime`):
         },
     ],
     "extra_data": {"localidad": ""},
+    # Propios de PersonaMoral
     "razon_social": "Mi razón social",
     "regimen_de_capital": "SA DE CV",
     "fecha_constitucion": datetime(2019, 2, 21),
 }
 ```
+
+Salida de `person.to_dict()` para una **persona física**:
+
+```python
+{
+    # Compartidos con PersonaMoral
+    "rfc": "GODE561231GR8",
+    "id_cif": "12345678",
+    "fecha_inicio_operaciones": datetime(2019, 2, 21),
+    "situacion_contribuyente": "ACTIVO",
+    "fecha_ultimo_cambio_situacion": datetime(2019, 2, 21),
+    "entidad_federativa": "CIUDAD DE MEXICO",
+    "municipio_delegacion": "CUAUHTEMOC",
+    "colonia": "CENTRO",
+    "tipo_vialidad": "CALLE",
+    "nombre_vialidad": "AVENIDA REFORMA",
+    "numero_exterior": "123",
+    "numero_interior": "A",
+    "codigo_postal": "06000",
+    "correo_electronico": "contacto@ejemplo.mx",
+    "al": "CIUDAD DE MEXICO",
+    "regimenes": [
+        {
+            "regimen": "Régimen de Sueldos y Salarios e Ingresos Asimilados a Salarios",
+            "fecha_alta": datetime(2019, 2, 21),
+            "regimen_id": "605",
+        },
+    ],
+    "extra_data": {"localidad": ""},
+    # Propios de PersonaFisica
+    "curp": "GODE561231HDFRRN09",
+    "nombre": "MI NOMBRE",
+    "apellido_paterno": "MI APELLIDO PATERNO",
+    "apellido_materno": "MI APELLIDO MATERNO",
+    "fecha_nacimiento": datetime(1956, 12, 31),
+}
+```
+
+Si necesitas las fechas en ISO-8601, usa `person.model_dump_json()`, que
+serializa exactamente las mismas propiedades.
 
 ## Modelos
 

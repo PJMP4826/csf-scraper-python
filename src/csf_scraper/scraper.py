@@ -29,8 +29,15 @@ class Scraper:
     Todo el flujo es asíncrono: la descarga usa un
     :class:`httpx.AsyncClient` y la extracción de datos se espera con
     ``await``. El cliente se puede cerrar con :meth:`aclose` o usando el
-    scraper como *async context manager*::
+    scraper como *async context manager*; usar ``async with`` es opcional::
 
+        scraper = Scraper.create()
+        try:
+            person = await scraper.obtain_from_rfc_and_cif(rfc, id_cif)
+        finally:
+            await scraper.aclose()
+
+        # Equivalente, cerrando al salir del bloque:
         async with Scraper.create() as scraper:
             person = await scraper.obtain_from_rfc_and_cif(rfc, id_cif)
     """
@@ -61,7 +68,9 @@ class Scraper:
     ) -> Self:
         """Crea un cliente HTTP asíncrono listo para usar contra el SAT."""
         return cls(
-            httpx.AsyncClient(follow_redirects=True, timeout=None, verify=_create_ssl_context()),
+            httpx.AsyncClient(
+                follow_redirects=True, timeout=None, verify=_create_ssl_context()
+            ),
             pdf_extractor=pdf_extractor,
             image_extractor=image_extractor,
         )
@@ -83,7 +92,9 @@ class Scraper:
         """Cierra el cliente HTTP subyacente."""
         await self.client.aclose()
 
-    async def obtain_from_rfc_and_cif(self, rfc: str, id_cif: str) -> PersonaMoral | PersonaFisica:
+    async def obtain_from_rfc_and_cif(
+        self, rfc: str, id_cif: str
+    ) -> PersonaMoral | PersonaFisica:
         """Obtiene la persona a partir de su RFC y su idCIF."""
         parsed_rfc = Rfc(rfc)
         parsed_cif = IdCif(id_cif)
