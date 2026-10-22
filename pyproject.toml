@@ -54,6 +54,12 @@ llm-gemini = [
 [tool.hatch.build.targets.wheel]
 packages = ["src/csf_scraper"]
 
+[tool.hatch.build.targets.sdist]
+exclude = [
+    "requirements.txt",
+    ".gitignore",
+]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
