@@ -13,8 +13,10 @@ class RfcCifSchema(BaseModel):
         description=(
             "Registro Federal de Contribuyentes (RFC) de la persona física o moral. "
             "Ubicación en la imagen:\n"
-            "1. En el renglón 'RFC:' de la sección 'Datos de Identificación del Contribuyente'.\n"
-            "2. Arriba del texto 'Registro Federal de Contribuyentes', a la derecha del código QR.\n"
+            "1. En el renglón 'RFC:' de la sección 'Datos de Identificación del "
+            "Contribuyente'.\n"
+            "2. Arriba del texto 'Registro Federal de Contribuyentes', a la derecha "
+            "del código QR.\n"
             "3. Debajo del código de barras vertical del lado derecho del encabezado.\n"
             "Formato: Cadena alfanumérica en mayúsculas de 12 caracteres (persona moral) o 13 "
             "caracteres (persona física) sin espacios, guiones ni puntos.\n"
@@ -26,7 +28,8 @@ class RfcCifSchema(BaseModel):
         description=(
             "Identificador de la Cédula de Identificación Fiscal (idCIF).\n"
             "Ubicación en la imagen:\n"
-            "Se encuentra EXCLUSIVAMENTE dentro del recuadro de la 'CÉDULA DE IDENTIFICACIÓN FISCAL' "
+            "Se encuentra EXCLUSIVAMENTE dentro del recuadro de la 'CÉDULA DE "
+            "IDENTIFICACIÓN FISCAL' "
             "(a la derecha del código QR), sobre la leyenda 'VALIDA TU INFORMACIÓN FISCAL', "
             "antecedido por la etiqueta 'idCIF:'.\n"
             "Formato: Extraer ÚNICAMENTE los números (de 8 a 13 dígitos consecutivos), "
