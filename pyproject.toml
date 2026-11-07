@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "csf-scraper-python"
-version = "0.1.1"
+version = "0.2.0"
 description = "Obtiene los datos fiscales actuales de una persona moral o física dado su RFC y su idCIF (port de phpcfdi/csf-scraper)"
 readme = "README.md"
 license = "MIT"
@@ -22,6 +22,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Typing :: Typed",
 ]
 requires-python = ">=3.11"
@@ -49,6 +50,10 @@ dev = [
 llm-gemini = [
     "google-genai>=1.0",
     "llama-index-llms-google-genai>=0.11,<0.12",
+]
+opencv = [
+    "numpy>=2",
+    "opencv-python-headless>=5.0",
 ]
 
 [tool.hatch.build.targets.wheel]

@@ -11,7 +11,8 @@ su idCIF (SAT, Constancia de Situación Fiscal).
   `poppler-utils`), necesario **solo** para leer la CSF desde un archivo PDF
   (`obtain_from_pdf_path`).
 - Dependencias: `httpx`, `beautifulsoup4`, `lxml`, `pydantic`, `llama-index-core`.
-  Los clientes de cada proveedor LLM son extras opcionales (`llm-gemini`).
+  Los clientes de cada proveedor LLM son extras opcionales (`llm-gemini`). El
+  lector de imágenes basado en OpenCV requiere el extra `opencv`.
 
 ## Instalación
 
@@ -25,6 +26,12 @@ Para leer CSF escaneadas (JPEG/PNG) con Gemini, agrega el extra:
 
 ```bash
 pip install "csf-scraper-python[llm-gemini]"
+```
+
+Para leerlas usando el lector basado en OpenCV:
+
+```bash
+pip install "csf-scraper-python[opencv]"
 ```
 
 Desde el código fuente:
@@ -105,6 +112,28 @@ from csf_scraper import CsfImageExtractor, GeminiImageReader, Scraper
 async def main() -> None:
     reader = GeminiImageReader(api_key="…", model_name="…")
     scraper = Scraper.create(image_extractor=CsfImageExtractor(reader))
+    try:
+        person = await scraper.obtain_from_image_path("ruta/al/csf.png")
+    finally:
+        await scraper.aclose()
+    print(person.to_dict())
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+Para usar el lector basado en OpenCV no se necesita un proveedor LLM. Requiere
+el extra `opencv`:
+
+```python
+import asyncio
+
+from csf_scraper import CsfImageExtractor, OpenCvImageReader, Scraper
+
+
+async def main() -> None:
+    scraper = Scraper.create(image_extractor=CsfImageExtractor(OpenCvImageReader()))
     try:
         person = await scraper.obtain_from_image_path("ruta/al/csf.png")
     finally:

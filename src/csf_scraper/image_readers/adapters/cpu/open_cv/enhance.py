@@ -33,7 +33,7 @@ def _upscale_if_needed(image: np.ndarray, min_width: int, max_upscale: float) ->
     scale = min(min_width / float(width), max_upscale)
     if scale <= 1.0:
         return image
-    size = (int(round(image.shape[1] * scale)), int(round(image.shape[0] * scale)))
+    size = (round(image.shape[1] * scale), round(image.shape[0] * scale))
     return cv2.resize(image, size, interpolation=cv2.INTER_CUBIC)
 
 

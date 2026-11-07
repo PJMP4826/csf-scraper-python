@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Iterator
 from urllib.parse import urlparse
 
 import cv2
@@ -26,7 +27,7 @@ def _resize_for_qr(image: np.ndarray) -> np.ndarray:
         scale = QR_MIN_SIDE / float(max_side)
     else:
         return image
-    size = (max(1, int(round(width * scale))), max(1, int(round(height * scale))))
+    size = (max(1, round(width * scale)), max(1, round(height * scale)))
     interpolation = cv2.INTER_AREA if scale < 1.0 else cv2.INTER_CUBIC
     return cv2.resize(image, size, interpolation=interpolation)
 
@@ -41,7 +42,7 @@ def _to_gray(image: np.ndarray) -> np.ndarray | None:
     return None
 
 
-def _candidate_images(image: np.ndarray):
+def _candidate_images(image: np.ndarray) -> Iterator[np.ndarray]:
     if image is None or image.size == 0:
         return
     resized = _resize_for_qr(image)

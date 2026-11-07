@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 import cv2
 import numpy as np
 
 from .errors import InvalidGeometryError
 
+PointSet = np.ndarray | Sequence[Sequence[float]]
 
-def _validate_points(pts: np.ndarray | list | tuple) -> np.ndarray:
+
+def _validate_points(pts: PointSet) -> np.ndarray:
     points = np.asarray(pts, dtype=np.float32).reshape(-1, 2)
     if points.shape != (4, 2):
         raise InvalidGeometryError(f"expected 4 points, got shape {points.shape}")
@@ -23,7 +27,7 @@ def _signed_area(points: np.ndarray) -> float:
     return float(0.5 * np.sum(x * np.roll(y, -1) - np.roll(x, -1) * y))
 
 
-def order_points(pts: np.ndarray | list | tuple) -> np.ndarray:
+def order_points(pts: PointSet) -> np.ndarray:
     points = _validate_points(pts)
     center = points.mean(axis=0)
     angles = np.arctan2(points[:, 1] - center[1], points[:, 0] - center[0])
@@ -35,7 +39,7 @@ def order_points(pts: np.ndarray | list | tuple) -> np.ndarray:
     return ordered.astype(np.float32)
 
 
-def scale_points(pts: np.ndarray | list | tuple, scale: float) -> np.ndarray:
+def scale_points(pts: PointSet, scale: float) -> np.ndarray:
     points = _validate_points(pts)
     if scale <= 0:
         raise InvalidGeometryError("scale must be positive")
@@ -44,7 +48,7 @@ def scale_points(pts: np.ndarray | list | tuple, scale: float) -> np.ndarray:
 
 def four_point_transform(
     image: np.ndarray,
-    pts: np.ndarray | list | tuple,
+    pts: PointSet,
     margin: int = 0,
 ) -> tuple[np.ndarray, np.ndarray]:
     if image is None or image.size == 0:
@@ -59,8 +63,8 @@ def four_point_transform(
     tl, tr, br, bl = rect
     width = max(np.linalg.norm(br - bl), np.linalg.norm(tr - tl))
     height = max(np.linalg.norm(tr - br), np.linalg.norm(tl - bl))
-    width = int(round(width))
-    height = int(round(height))
+    width = round(width)
+    height = round(height)
 
     if width < 2 or height < 2:
         raise InvalidGeometryError("document quad is too small")

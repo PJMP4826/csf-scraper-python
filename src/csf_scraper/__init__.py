@@ -57,8 +57,8 @@ from csf_scraper.scraper import Scraper
 from csf_scraper.value_objects import CsfImage, IdCif, Rfc
 
 if TYPE_CHECKING:
-    from csf_scraper.image_readers.adapters.llms import GeminiImageReader
     from csf_scraper.image_readers.adapters.cpu import OpenCvImageReader
+    from csf_scraper.image_readers.adapters.llms import GeminiImageReader
 
 __all__ = [
     "CSF_PROMPT",
@@ -77,7 +77,6 @@ __all__ = [
     "DataExtractor",
     "EmptyPdfContentException",
     "GeminiImageReader",
-    "OpenCvImageReader",
     "IdCif",
     "ImageExtractorNotConfiguredException",
     "ImageReaderApiException",
@@ -90,6 +89,7 @@ __all__ = [
     "InvalidImageFormatException",
     "InvalidRfcFormatException",
     "LlmImageReaderService",
+    "OpenCvImageReader",
     "PdfCsfTextParser",
     "PdfTextProvider",
     "PdfToTextConvertException",

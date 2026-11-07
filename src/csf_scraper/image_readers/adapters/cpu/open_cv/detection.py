@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass, field
 
 import cv2
@@ -29,7 +30,7 @@ def _prepare_work_image(gray: np.ndarray, config: DetectionConfig) -> tuple[np.n
     height, width = gray.shape[:2]
     scale = min(1.0, config.resize_height / float(height))
     if scale < 1.0:
-        size = (max(1, int(round(width * scale))), max(1, int(round(height * scale))))
+        size = (max(1, round(width * scale)), max(1, round(height * scale)))
         work = cv2.resize(gray, size, interpolation=cv2.INTER_AREA)
     else:
         work = gray.copy()
@@ -96,10 +97,10 @@ def _approx_quad(contour: np.ndarray, epsilon_ratios: tuple[float, ...]) -> np.n
 
 
 def _iter_candidates(
-    contours: list[np.ndarray],
+    contours: Sequence[np.ndarray],
     image_area: float,
     config: DetectionConfig,
-):
+) -> Iterator[tuple[np.ndarray, str, float]]:
     valid: list[np.ndarray] = []
     for contour in contours:
         area = cv2.contourArea(contour)
@@ -222,7 +223,8 @@ def detect_document(
     best_variant = ""
 
     for variant, mask in masks:
-        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        found_contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        contours = [np.asarray(contour) for contour in found_contours]
         if not contours:
             continue
         for quad, method, solidity in _iter_candidates(contours, image_area, cfg):
