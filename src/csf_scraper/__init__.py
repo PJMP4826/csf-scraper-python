@@ -58,6 +58,7 @@ from csf_scraper.value_objects import CsfImage, IdCif, Rfc
 
 if TYPE_CHECKING:
     from csf_scraper.image_readers.adapters.llms import GeminiImageReader
+    from csf_scraper.image_readers.adapters.cpu import OpenCvImageReader
 
 __all__ = [
     "CSF_PROMPT",
@@ -76,6 +77,7 @@ __all__ = [
     "DataExtractor",
     "EmptyPdfContentException",
     "GeminiImageReader",
+    "OpenCvImageReader",
     "IdCif",
     "ImageExtractorNotConfiguredException",
     "ImageReaderApiException",
@@ -115,5 +117,10 @@ def __getattr__(name: str) -> object:
         from csf_scraper.image_readers.adapters.llms import GeminiImageReader
 
         return GeminiImageReader
+    
+    if name == "OpenCvImageReader":
+        from csf_scraper.image_readers.adapters.cpu import OpenCvImageReader
+
+        return OpenCvImageReader
 
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
