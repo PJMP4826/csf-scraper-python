@@ -63,6 +63,7 @@ networkx==3.7
 nh3==0.3.7
 nltk==3.10.3
 numpy==2.5.4
+opencv-python-headless==5.0.0.93
 packaging==26.3
 pathspec==1.1.1
 pillow==13.0.0
