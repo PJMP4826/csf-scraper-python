@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "csf-scraper-python"
-version = "0.2.0"
+version = "0.3.0"
 description = "Obtiene los datos fiscales actuales de una persona moral o física dado su RFC y su idCIF (port de phpcfdi/csf-scraper)"
 readme = "README.md"
 license = "MIT"
