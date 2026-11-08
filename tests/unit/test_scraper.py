@@ -60,13 +60,39 @@ def test_obtain_from_image_path_delegates_to_the_extractor() -> None:
     assert extractor.received == "csf.png"
 
 
+def test_obtain_from_image_content_requires_an_extractor() -> None:
+    scraper = Scraper(httpx.AsyncClient())
+
+    with pytest.raises(ImageExtractorNotConfiguredException):
+        asyncio.run(scraper.obtain_from_image_content(b"image"))
+
+
+def test_obtain_from_image_content_delegates_to_the_extractor() -> None:
+    extractor = _FakeExtractor(RfcCifData(rfc="DIM8701081LA", id_cif="12345678"))
+    scraper = Scraper(httpx.AsyncClient(), image_extractor=extractor)
+
+    with respx.mock:
+        respx.get(url__regex=VALIDADOR_URL_REGEX).mock(
+            return_value=httpx.Response(200, text=file_contents("error.html")),
+        )
+        with pytest.raises(CifNotFoundException):
+            asyncio.run(scraper.obtain_from_image_content(b"image"))
+
+    assert extractor.received_content == b"image"
+
+
 class _FakeExtractor:
     """Estrategia de extracción para pruebas."""
 
     def __init__(self, data: RfcCifData) -> None:
         self.data = data
         self.received: str | None = None
+        self.received_content: bytes | None = None
 
     async def extract(self, path: str) -> RfcCifData:
         self.received = path
+        return self.data
+
+    async def extract_from_content(self, content: bytes) -> RfcCifData:
+        self.received_content = content
         return self.data

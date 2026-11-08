@@ -26,6 +26,16 @@ def test_reads_the_image_from_the_path(tmp_path) -> None:
     assert data.rfc == "DIM8701081LA"
 
 
+def test_reads_the_image_from_the_content() -> None:
+    reader = _FakeImageReader(RfcCifData(rfc="DIM8701081LA", id_cif="12345678"))
+
+    data = asyncio.run(CsfImageExtractor(reader).extract_from_content(PNG_BYTES))
+
+    assert reader.received is not None
+    assert reader.received.as_bytes() == PNG_BYTES
+    assert data.rfc == "DIM8701081LA"
+
+
 def test_validates_the_image_format(tmp_path) -> None:
     path = tmp_path / "csf.txt"
     path.write_bytes(b"not an image")
