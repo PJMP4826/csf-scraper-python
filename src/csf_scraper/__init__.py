@@ -50,7 +50,7 @@ from csf_scraper.pdf_reader import CsfPdfExtractor, PdfCsfTextParser, PdfTextPro
 from csf_scraper.persona import Persona
 from csf_scraper.persona_fisica import PersonaFisica
 from csf_scraper.persona_moral import PersonaMoral
-from csf_scraper.ports import RfcCifExtractorPort
+from csf_scraper.ports import ImageRfcCifExtractorPort, RfcCifExtractorPort
 from csf_scraper.regimen import Regimen
 from csf_scraper.rfc_cif_data import RfcCifData
 from csf_scraper.scraper import Scraper
@@ -84,6 +84,7 @@ __all__ = [
     "ImageReaderPort",
     "ImageReaderUnavailableException",
     "ImageReadingException",
+    "ImageRfcCifExtractorPort",
     "InvalidIdCifFormatException",
     "InvalidImageException",
     "InvalidImageFormatException",
