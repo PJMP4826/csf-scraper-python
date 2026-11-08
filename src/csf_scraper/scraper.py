@@ -12,7 +12,7 @@ from csf_scraper.exceptions.image_reader import ImageExtractorNotConfiguredExcep
 from csf_scraper.pdf_reader import CsfPdfExtractor
 from csf_scraper.persona_fisica import PersonaFisica
 from csf_scraper.persona_moral import PersonaMoral
-from csf_scraper.ports import RfcCifExtractorPort
+from csf_scraper.ports import ImageRfcCifExtractorPort, RfcCifExtractorPort
 from csf_scraper.value_objects.id_cif import IdCif
 from csf_scraper.value_objects.rfc import Rfc
 
@@ -51,20 +51,20 @@ class Scraper:
         client: httpx.AsyncClient,
         *,
         pdf_extractor: RfcCifExtractorPort | None = None,
-        image_extractor: RfcCifExtractorPort | None = None,
+        image_extractor: ImageRfcCifExtractorPort | None = None,
     ) -> None:
         self.client = client
         #: Extractor de CSF en PDF; por omisión usa ``pdftotext``.
         self.pdf_extractor: RfcCifExtractorPort = pdf_extractor or CsfPdfExtractor()
         #: Extractor de CSF escaneada (LLM/OCR); opcional.
-        self.image_extractor = image_extractor
+        self.image_extractor: ImageRfcCifExtractorPort | None = image_extractor
 
     @classmethod
     def create(
         cls,
         *,
         pdf_extractor: RfcCifExtractorPort | None = None,
-        image_extractor: RfcCifExtractorPort | None = None,
+        image_extractor: ImageRfcCifExtractorPort | None = None,
     ) -> Self:
         """Crea un cliente HTTP asíncrono listo para usar contra el SAT."""
         return cls(
@@ -117,6 +117,13 @@ class Scraper:
         if self.image_extractor is None:
             raise ImageExtractorNotConfiguredException()
         data = await self.image_extractor.extract(path)
+        return await self.obtain_from_rfc_and_cif(data.rfc, data.id_cif)
+
+    async def obtain_from_image_content(self, content: bytes) -> PersonaMoral | PersonaFisica:
+        """Obtiene la persona leyendo su RFC e idCIF de una CSF escaneada (JPEG/PNG)."""
+        if self.image_extractor is None:
+            raise ImageExtractorNotConfiguredException()
+        data = await self.image_extractor.extract_from_content(content)
         return await self.obtain_from_rfc_and_cif(data.rfc, data.id_cif)
 
     async def _obtain_html(self, uri: str) -> str:
