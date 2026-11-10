@@ -4,6 +4,8 @@ Módulo de descarga (autenticado con FIEL). La lectura pública de la CSF
 —por RFC+idCIF, PDF o imagen— vive en el paquete raíz ``csf_scraper``.
 """
 
+from typing import TYPE_CHECKING
+
 from csf_scraper.download.exceptions import (
     ConstanciaNotAvailableException,
     FielCredentialsException,
@@ -15,11 +17,19 @@ from csf_scraper.download.exceptions import (
 )
 from csf_scraper.download.form_utils import FormExtractionResult, extract_form
 from csf_scraper.download.http import SatHttpClientFactory, create_sat_ssl_context
-from csf_scraper.download.value_objects import CsfPdf
+from csf_scraper.download.ports import AuthPort, ConstanciaDownloaderPort, SignerPort
+from csf_scraper.download.services import generate_token
+from csf_scraper.download.value_objects import CsfPdf, FielCredentials
+
+if TYPE_CHECKING:
+    from csf_scraper.download.adapters import Signer
 
 __all__ = [
+    "AuthPort",
+    "ConstanciaDownloaderPort",
     "ConstanciaNotAvailableException",
     "CsfPdf",
+    "FielCredentials",
     "FielCredentialsException",
     "FormExtractionResult",
     "InvalidPdfException",
@@ -28,6 +38,23 @@ __all__ = [
     "SatLoginException",
     "SatNetworkException",
     "SatSsoException",
+    "Signer",
+    "SignerPort",
     "create_sat_ssl_context",
     "extract_form",
+    "generate_token",
 ]
+
+
+def __getattr__(name: str) -> object:
+    """Resuelve el adaptador FIEL de forma perezosa.
+
+    Así ``from csf_scraper.download import Signer`` sigue funcionando, pero
+    solo importa ``cryptography``/``pyOpenSSL`` cuando alguien realmente lo
+    pide (extra ``fiel``).
+    """
+    if name == "Signer":
+        from csf_scraper.download.adapters import Signer
+
+        return Signer
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
