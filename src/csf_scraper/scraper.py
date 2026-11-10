@@ -1,6 +1,8 @@
 """Cliente para consultar los datos fiscales en el validador del SAT."""
 
 import ssl
+import tempfile
+from pathlib import Path
 from types import TracebackType
 from typing import ClassVar, Self
 
@@ -69,7 +71,12 @@ class Scraper:
         """Crea un cliente HTTP asíncrono listo para usar contra el SAT."""
         return cls(
             httpx.AsyncClient(
-                follow_redirects=True, timeout=None, verify=_create_ssl_context()
+                follow_redirects=True,
+                timeout=None,
+                verify=_create_ssl_context(),
+                # No usar los proxies del entorno: la sesión no debe filtrarse
+                # por un proxy ambiente (igual que SatHttpClientFactory).
+                trust_env=False,
             ),
             pdf_extractor=pdf_extractor,
             image_extractor=image_extractor,
@@ -92,9 +99,7 @@ class Scraper:
         """Cierra el cliente HTTP subyacente."""
         await self.client.aclose()
 
-    async def obtain_from_rfc_and_cif(
-        self, rfc: str, id_cif: str
-    ) -> PersonaMoral | PersonaFisica:
+    async def obtain_from_rfc_and_cif(self, rfc: str, id_cif: str) -> PersonaMoral | PersonaFisica:
         """Obtiene la persona a partir de su RFC y su idCIF."""
         parsed_rfc = Rfc(rfc)
         parsed_cif = IdCif(id_cif)
@@ -111,6 +116,21 @@ class Scraper:
         """Obtiene la persona leyendo su RFC e idCIF de una CSF en PDF."""
         data = await self.pdf_extractor.extract(path)
         return await self.obtain_from_rfc_and_cif(data.rfc, data.id_cif)
+
+    async def obtain_from_pdf_bytes(self, content: bytes) -> PersonaMoral | PersonaFisica:
+        """Obtiene la persona leyendo su RFC e idCIF de un PDF de CSF en memoria.
+
+        Escribe los bytes en un archivo temporal para reutilizar el extractor
+        de PDF y lo borra al terminar; útil para encadenar la descarga
+        (``ConstanciaDownloader``) con la lectura sin guardar el PDF a disco.
+        """
+        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as temp_file:
+            temp_file.write(content)
+            temp_path = temp_file.name
+        try:
+            return await self.obtain_from_pdf_path(temp_path)
+        finally:
+            Path(temp_path).unlink(missing_ok=True)
 
     async def obtain_from_image_path(self, path: str) -> PersonaMoral | PersonaFisica:
         """Obtiene la persona leyendo su RFC e idCIF de una CSF escaneada (JPEG/PNG)."""

@@ -34,6 +34,12 @@ Para leerlas usando el lector basado en OpenCV:
 pip install "csf-scraper-python[opencv]"
 ```
 
+Para descargar la CSF desde el portal del SAT con FIEL, agrega el extra:
+
+```bash
+pip install "csf-scraper-python[fiel]"
+```
+
 Desde el código fuente:
 
 ```bash
@@ -224,6 +230,44 @@ Salida de `person.to_dict()` para una **persona física**:
 
 Si necesitas las fechas en ISO-8601, usa `person.model_dump_json()`, que
 serializa exactamente las mismas propiedades.
+
+## Descarga de CSF
+
+Descarga la Constancia de Situación Fiscal en PDF desde el portal del SAT
+autenticándose con FIEL (certificado `.cer`, llave `.key` y contraseña).
+Requiere el extra `fiel`:
+
+```bash
+pip install "csf-scraper-python[fiel]"
+```
+
+```python
+import asyncio
+
+from csf_scraper.download import ConstanciaDownloader, FielCredentials
+
+
+async def main() -> None:
+    credentials = FielCredentials.from_files(
+        certificate_path="fiel.cer", key_path="fiel.key", password="…"
+    )
+    async with ConstanciaDownloader.create(credentials=credentials) as downloader:
+        pdf = await downloader.download()
+        pdf.save("constancia.pdf")
+
+        # O descarga y lee la persona en un solo paso:
+        person = await downloader.download_and_parse()
+        print(person.to_dict())
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+También hay una versión síncrona para scripts (`downloader.download_sync()`).
+La contraseña viaja como `SecretStr` y nunca se loguea; la sesión del SAT se
+cierra siempre, incluso si la descarga falla. El flujo interno es: login FIEL
+(token firmado SHA-1) → SSO/SAML → formulario JSF → PDF validado (`CsfPdf`).
 
 ## Modelos
 
