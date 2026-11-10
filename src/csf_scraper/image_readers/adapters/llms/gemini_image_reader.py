@@ -105,9 +105,7 @@ class GeminiImageReader(LlmImageReaderService, ImageReaderPort):
         """Delega el flujo de reintentos y mapeo en el método plantilla."""
         return await self._run_program(image=image, llm_provider=self._llm_provider)
 
-    def _translate_api_exception(
-        self, exception: Exception
-    ) -> ImageReaderApiException | None:
+    def _translate_api_exception(self, exception: Exception) -> ImageReaderApiException | None:
         """Traduce ``google.genai.errors`` a excepciones de la librería.
 
         - Credenciales rechazadas (401/403) →
