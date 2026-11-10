@@ -51,6 +51,10 @@ llm-gemini = [
     "google-genai>=1.0",
     "llama-index-llms-google-genai>=0.11,<0.12",
 ]
+
+fiel = [
+    "cryptography>=42",
+]
 opencv = [
     "numpy>=2",
     "opencv-python-headless>=5.0",
