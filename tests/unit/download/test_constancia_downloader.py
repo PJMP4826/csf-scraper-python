@@ -75,6 +75,32 @@ def test_download_logs_out_even_when_the_document_fails() -> None:
     assert auth.calls == ["login", "logout"]
 
 
+def test_download_and_parse_reuses_the_provided_pdf(monkeypatch: pytest.MonkeyPatch) -> None:
+    pdf = CsfPdf.new_from_contents(_PDF)
+    downloader = _downloader(document=_FakeDocument(fail=True))
+    parsed: dict[str, bytes] = {}
+
+    class _FakeScraper:
+        @classmethod
+        def create(cls) -> "_FakeScraper":
+            return cls()
+
+        async def __aenter__(self) -> "_FakeScraper":
+            return self
+
+        async def __aexit__(self, *args: object) -> None:
+            return None
+
+        async def obtain_from_pdf_bytes(self, data: bytes) -> str:
+            parsed["data"] = data
+            return "persona"
+
+    monkeypatch.setattr("csf_scraper.scraper.Scraper", _FakeScraper)
+
+    assert asyncio.run(downloader.download_and_parse(pdf)) == "persona"
+    assert parsed["data"] == _PDF
+
+
 def test_download_sync_runs_the_async_flow() -> None:
     downloader = _downloader()
 

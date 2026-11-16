@@ -96,17 +96,19 @@ class ConstanciaDownloader(ConstanciaDownloaderPort):
         finally:
             await self._auth.logout(self.client)
 
-    async def download_and_parse(self) -> PersonaMoral | PersonaFisica:
+    async def download_and_parse(self, pdf: CsfPdf | None = None) -> PersonaMoral | PersonaFisica:
         """Descarga la constancia y devuelve la persona que describe.
 
-        Delega la lectura en :class:`~csf_scraper.scraper.Scraper`, así la
-        descarga y la lectura siguen siendo dos responsabilidades separadas.
+        Si se entrega ``pdf``, se reutiliza ese documento en vez de descargar
+        de nuevo. Delega la lectura en :class:`~csf_scraper.scraper.Scraper`,
+        así la descarga y la lectura siguen siendo dos responsabilidades
+        separadas.
         """
         from csf_scraper.scraper import Scraper
 
-        pdf = await self.download()
+        document = pdf or await self.download()
         async with Scraper.create() as scraper:
-            return await scraper.obtain_from_pdf_bytes(pdf.as_bytes())
+            return await scraper.obtain_from_pdf_bytes(document.as_bytes())
 
     def download_sync(self) -> CsfPdf:
         """Versión síncrona de :meth:`download` para scripts y CLI.
