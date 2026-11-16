@@ -16,7 +16,11 @@ from csf_scraper.download.exceptions import (
     SatNetworkException,
     SatSsoException,
 )
-from csf_scraper.download.form_utils import FormExtractionResult, extract_form
+from csf_scraper.download.form_utils import (
+    FormExtractionResult,
+    extract_button_name,
+    extract_form,
+)
 from csf_scraper.download.http import SatHttpClientFactory, create_sat_ssl_context
 from csf_scraper.download.ports import AuthPort, ConstanciaDownloaderPort, SignerPort
 from csf_scraper.download.services import (
@@ -51,6 +55,7 @@ __all__ = [
     "SignerPort",
     "SsoHandler",
     "create_sat_ssl_context",
+    "extract_button_name",
     "extract_form",
     "generate_token",
 ]

@@ -1,7 +1,7 @@
 import pytest
 
 from csf_scraper.download.exceptions import SatFormNotFoundException
-from csf_scraper.download.form_utils import extract_form
+from csf_scraper.download.form_utils import extract_button_name, extract_form
 
 _LOGIN_HTML = """<html><body>
 <form action="/nidp/app/login?id=fiel" method="post">
@@ -47,3 +47,27 @@ def test_extract_form_without_form_raises() -> None:
 def test_extract_form_by_missing_id_raises() -> None:
     with pytest.raises(SatFormNotFoundException):
         extract_form(_LOGIN_HTML, form_id="certform")
+
+
+_BUTTON_HTML = """<html><body>
+<form id="formReimpAcuse" method="post">
+  <button name="formReimpAcuse:j_idt62" type="submit"
+          onclick="PrimeFaces.ab({source:'formReimpAcuse:j_idt62'});">Buscar</button>
+  <button name="formReimpAcuse:j_idt65" type="submit"
+          onclick="PrimeFaces.ab({source:'formReimpAcuse:j_idt65',oncomplete:function(){
+            window.open('/PTSC/IdcSiat/IdcGeneraConstancia.jsf');}});">Generar</button>
+</form>
+</body></html>"""
+
+
+def test_extract_button_name_finds_the_button_with_the_marker() -> None:
+    name = extract_button_name(
+        _BUTTON_HTML, form_id="formReimpAcuse", onclick_contains="IdcGeneraConstancia.jsf"
+    )
+
+    assert name == "formReimpAcuse:j_idt65"
+
+
+def test_extract_button_name_without_marker_raises() -> None:
+    with pytest.raises(SatFormNotFoundException):
+        extract_button_name(_BUTTON_HTML, form_id="formReimpAcuse", onclick_contains="NoExiste.jsf")
