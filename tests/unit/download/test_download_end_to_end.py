@@ -17,13 +17,19 @@ from csf_scraper.download.urls import (
     SESSION_BROKER_URL,
 )
 
-_SSO_HTML = """<html><body>
-<form action="https://login.siat.sat.gob.mx/nidp/app/login?id=fiel" method="post">
-  <input type="hidden" name="foo" value="1" />
-</form>
+_BOOTSTRAP_URL = (
+    "https://login.siat.sat.gob.mx/nidp/app/login?id=fiel_Aviso&sid=0&option=credential&sid=0"
+)
+
+_BOOTSTRAP_HTML = f"""<html><body>
+<form method="POST" action="{_BOOTSTRAP_URL}"></form>
+<script>document.forms[0].submit();</script>
 </body></html>"""
 
 _CERTFORM_HTML = """<html><body>
+<form role="form" method="post">
+  <input type="file" name="txtCertificate" />
+</form>
 <form id="certform" action="https://login.siat.sat.gob.mx/nidp/app/login" method="post">
   <input type="hidden" name="guid" value="guid-e2e" />
 </form>
@@ -44,6 +50,10 @@ _SAML_RESPONSE_HTML = f"""<html><body>
 _TRAMITE_HTML = f"""<html><body>
 <form id="formReimpAcuse" action="{CONSULTA_TRAMITE_URL}" method="post">
   <input type="hidden" name="javax.faces.ViewState" value="vs-e2e" />
+  <button id="formReimpAcuse:j_idt65" name="formReimpAcuse:j_idt65" type="submit"
+          onclick="PrimeFaces.ab({{source:'formReimpAcuse:j_idt65',oncomplete:function(){{
+            window.open('/PTSC/IdcSiat/IdcGeneraConstancia.jsf');}}}});return false;"
+  >Generar</button>
 </form>
 </body></html>"""
 
@@ -55,10 +65,8 @@ def test_full_download_flow_with_a_real_fiel_signer() -> None:
     credentials = FielCredentials.from_bytes(certificate=certificate, key=key, password=PASSWORD)
 
     with respx.mock:
-        respx.get(LOGIN_FIEL_SSO_URL).mock(return_value=httpx.Response(200, text=_SSO_HTML))
-        respx.post("https://login.siat.sat.gob.mx/nidp/app/login?id=fiel").mock(
-            return_value=httpx.Response(200, text=_CERTFORM_HTML)
-        )
+        respx.get(LOGIN_FIEL_SSO_URL).mock(return_value=httpx.Response(200, text=_BOOTSTRAP_HTML))
+        respx.post(_BOOTSTRAP_URL).mock(return_value=httpx.Response(200, text=_CERTFORM_HTML))
         respx.post("https://login.siat.sat.gob.mx/nidp/app/login").mock(
             return_value=httpx.Response(200, text="ok")
         )
@@ -68,7 +76,13 @@ def test_full_download_flow_with_a_real_fiel_signer() -> None:
         respx.post(SAML_SSO_URL).mock(return_value=httpx.Response(200, text=_SAML_RESPONSE_HTML))
         respx.post(SAML_ACS_URL).mock(return_value=httpx.Response(200, text=_TRAMITE_HTML))
         respx.post(CONSULTA_TRAMITE_URL).mock(return_value=httpx.Response(200, text="ok"))
-        respx.get(CONSTANCIA_PDF_URL).mock(return_value=httpx.Response(200, content=_PDF))
+        respx.get(CONSTANCIA_PDF_URL).mock(
+            return_value=httpx.Response(
+                200,
+                content=_PDF,
+                headers={"Content-Disposition": "filename=Csf_AAPU790804II9.pdf"},
+            )
+        )
         logout_route = respx.get(url__regex=r".*logout.*").mock(
             return_value=httpx.Response(200, text="bye")
         )
@@ -79,6 +93,8 @@ def test_full_download_flow_with_a_real_fiel_signer() -> None:
             )
             async with downloader:
                 pdf = await downloader.download()
+                assert len(downloader.client.cookies.jar) == 0
+                assert pdf.filename == "Csf_AAPU790804II9.pdf"
                 return pdf.as_bytes()
 
         assert asyncio.run(_run()) == _PDF
