@@ -118,7 +118,7 @@ def __getattr__(name: str) -> object:
         from csf_scraper.image_readers.adapters.llms import GeminiImageReader
 
         return GeminiImageReader
-    
+
     if name == "OpenCvImageReader":
         from csf_scraper.image_readers.adapters.cpu import OpenCvImageReader
 

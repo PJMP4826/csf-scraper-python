@@ -47,3 +47,25 @@ def extract_form(
         if name is not None:
             fields[str(name)] = str(input_tag.get("value") or "")
     return FormExtractionResult(action=action, fields=fields)
+
+
+def extract_button_name(html: str, *, form_id: str, onclick_contains: str) -> str:
+    """Devuelve el ``name`` del botón cuyo ``onclick`` contiene ``onclick_contains``.
+
+    Los botones JSF (``<button id="form:j_idt65">``) son la fuente del
+    ``javax.faces.source`` de un POST AJAX. Sus identificadores ``j_idtN``
+    cambian entre sesiones y versiones, así que no se pueden fijar en el
+    código: hay que descubrirlos en el HTML del formulario.
+    """
+    soup = BeautifulSoup(html, "html.parser")
+    form = soup.find("form", id=form_id)
+    if form is None:
+        raise SatFormNotFoundException(
+            f"No form found in the SAT response (expected id={form_id!r})"
+        )
+    for element in form.find_all(["button", "input"]):
+        name = element.get("name")
+        onclick = str(element.get("onclick") or "")
+        if name is not None and onclick_contains in onclick:
+            return str(name)
+    raise SatFormNotFoundException(f"No button with {onclick_contains!r} in the {form_id!r} form")

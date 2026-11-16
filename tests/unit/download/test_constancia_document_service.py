@@ -5,7 +5,10 @@ import httpx
 import pytest
 import respx
 
-from csf_scraper.download.exceptions import ConstanciaNotAvailableException, InvalidPdfException
+from csf_scraper.download.exceptions import (
+    ConstanciaNotAvailableException,
+    InvalidPdfException,
+)
 from csf_scraper.download.http import SatHttpClientFactory
 from csf_scraper.download.services import ConstanciaDocumentService
 from csf_scraper.download.urls import CONSTANCIA_PDF_URL, CONSULTA_TRAMITE_URL
@@ -14,6 +17,10 @@ _TRAMITE_HTML = f"""<html><body>
 <form id="formReimpAcuse" action="{CONSULTA_TRAMITE_URL}" method="post">
   <input type="hidden" name="javax.faces.ViewState" value="vs-9" />
   <input type="hidden" name="formReimpAcuse:tipoTramite_input" value="1" />
+  <button id="formReimpAcuse:j_idt65" name="formReimpAcuse:j_idt65" type="submit"
+          onclick="PrimeFaces.ab({{source:'formReimpAcuse:j_idt65',oncomplete:function(){{
+            window.open('/PTSC/IdcSiat/IdcGeneraConstancia.jsf');}}}});return false;"
+  >Generar</button>
 </form>
 </body></html>"""
 
@@ -31,23 +38,36 @@ def test_download_sends_the_jsf_form_and_returns_a_validated_pdf() -> None:
         form_route = respx.post(CONSULTA_TRAMITE_URL).mock(
             return_value=httpx.Response(200, text="ok")
         )
-        respx.get(CONSTANCIA_PDF_URL).mock(return_value=httpx.Response(200, content=_PDF))
+        respx.get(CONSTANCIA_PDF_URL).mock(
+            return_value=httpx.Response(
+                200,
+                content=_PDF,
+                headers={"Content-Disposition": "filename=Csf_AAPU790804II9.pdf"},
+            )
+        )
 
         pdf = asyncio.run(service.download(_client(), _TRAMITE_HTML))
 
     assert pdf.as_bytes() == _PDF
-    body = parse_qs(form_route.calls[0].request.content.decode())
+    assert pdf.filename == "Csf_AAPU790804II9.pdf"
+    request = form_route.calls[0].request
+    body = parse_qs(request.content.decode())
     assert body["javax.faces.partial.ajax"] == ["true"]
-    assert body["javax.faces.source"] == ["formReimpAcuse:j_idt50"]
+    assert body["javax.faces.source"] == ["formReimpAcuse:j_idt65"]
+    assert body["formReimpAcuse:j_idt65"] == ["formReimpAcuse:j_idt65"]
     assert body["javax.faces.ViewState"] == ["vs-9"]
     assert body["formReimpAcuse:tipoTramite_input"] == ["0"]
+    assert request.headers["Faces-Request"] == "partial/ajax"
+    assert request.headers["X-Requested-With"] == "XMLHttpRequest"
 
 
 def test_download_rejects_a_non_pdf_response() -> None:
     service = ConstanciaDocumentService()
 
     with respx.mock:
-        respx.post(CONSULTA_TRAMITE_URL).mock(return_value=httpx.Response(200, text="ok"))
+        respx.post(CONSULTA_TRAMITE_URL).mock(
+            return_value=httpx.Response(200, text="ok")
+        )
         respx.get(CONSTANCIA_PDF_URL).mock(
             return_value=httpx.Response(200, content=b"<html>error</html>")
         )
@@ -61,3 +81,15 @@ def test_download_without_the_final_form_raises() -> None:
 
     with respx.mock, pytest.raises(ConstanciaNotAvailableException):
         asyncio.run(service.download(_client(), "<html><body>no form</body></html>"))
+
+
+def test_download_without_the_generate_button_raises() -> None:
+    service = ConstanciaDocumentService()
+    html = f"""<html><body>
+    <form id="formReimpAcuse" action="{CONSULTA_TRAMITE_URL}" method="post">
+      <input type="hidden" name="javax.faces.ViewState" value="vs-9" />
+    </form>
+    </body></html>"""
+
+    with respx.mock, pytest.raises(ConstanciaNotAvailableException):
+        asyncio.run(service.download(_client(), html))

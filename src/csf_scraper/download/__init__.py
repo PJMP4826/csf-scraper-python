@@ -6,6 +6,7 @@ Módulo de descarga (autenticado con FIEL). La lectura pública de la CSF
 
 from typing import TYPE_CHECKING
 
+from csf_scraper.download.constancia_downloader import ConstanciaDownloader
 from csf_scraper.download.exceptions import (
     ConstanciaNotAvailableException,
     FielCredentialsException,
@@ -15,10 +16,19 @@ from csf_scraper.download.exceptions import (
     SatNetworkException,
     SatSsoException,
 )
-from csf_scraper.download.form_utils import FormExtractionResult, extract_form
+from csf_scraper.download.form_utils import (
+    FormExtractionResult,
+    extract_button_name,
+    extract_form,
+)
 from csf_scraper.download.http import SatHttpClientFactory, create_sat_ssl_context
 from csf_scraper.download.ports import AuthPort, ConstanciaDownloaderPort, SignerPort
-from csf_scraper.download.services import generate_token
+from csf_scraper.download.services import (
+    ConstanciaDocumentService,
+    FielAuthService,
+    SsoHandler,
+    generate_token,
+)
 from csf_scraper.download.value_objects import CsfPdf, FielCredentials
 
 if TYPE_CHECKING:
@@ -26,9 +36,12 @@ if TYPE_CHECKING:
 
 __all__ = [
     "AuthPort",
+    "ConstanciaDocumentService",
+    "ConstanciaDownloader",
     "ConstanciaDownloaderPort",
     "ConstanciaNotAvailableException",
     "CsfPdf",
+    "FielAuthService",
     "FielCredentials",
     "FielCredentialsException",
     "FormExtractionResult",
@@ -40,7 +53,9 @@ __all__ = [
     "SatSsoException",
     "Signer",
     "SignerPort",
+    "SsoHandler",
     "create_sat_ssl_context",
+    "extract_button_name",
     "extract_form",
     "generate_token",
 ]

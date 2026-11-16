@@ -12,6 +12,7 @@ responsabilidad de :class:`ConstanciaDocumentService`.
 
 import html as html_module
 import re
+from urllib.parse import urlparse
 
 import httpx
 
@@ -24,6 +25,11 @@ _IFRAME_PATTERN = re.compile(r'<iframe[^>]+id="iframetoload"[^>]+src="([^"]+)"',
 
 #: Máximo de formularios SAML a seguir (como el bucle de 10 de satcfdi).
 _MAX_SSO_FORMS = 10
+
+
+def _is_consulta_tramite(url: str) -> bool:
+    """Compara por ruta, tolerando ``;jsessionid`` y query strings."""
+    return urlparse(url).path.rstrip("/") == urlparse(CONSULTA_TRAMITE_URL).path.rstrip("/")
 
 
 class SsoHandler:
@@ -42,7 +48,7 @@ class SsoHandler:
                 form = extract_form(html, base_url=current_url)
             except SatFormNotFoundException:
                 return html
-            if form.action == CONSULTA_TRAMITE_URL:
+            if _is_consulta_tramite(form.action):
                 return html
             response = await post_form(
                 client, action=form.action, referer_url=current_url, data=form.fields

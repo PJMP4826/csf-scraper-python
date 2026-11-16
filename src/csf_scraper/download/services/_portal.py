@@ -19,11 +19,19 @@ def _origin_and_referer(url: str) -> dict[str, str]:
 
 
 async def post_form(
-    client: httpx.AsyncClient, *, action: str, referer_url: str, data: dict[str, str]
+    client: httpx.AsyncClient,
+    *,
+    action: str,
+    referer_url: str,
+    data: dict[str, str],
+    extra_headers: dict[str, str] | None = None,
 ) -> httpx.Response:
     """Envía un formulario POST con las cabeceras que exige el SAT."""
+    headers = _origin_and_referer(referer_url)
+    if extra_headers:
+        headers.update(extra_headers)
     try:
-        response = await client.post(action, headers=_origin_and_referer(referer_url), data=data)
+        response = await client.post(action, headers=headers, data=data)
         response.raise_for_status()
     except httpx.HTTPError as exception:
         raise SatNetworkException(action) from exception
